@@ -2,12 +2,12 @@
 
 ## Foundation and engine
 
-- Base branch: \`release/v0.3-pixel9-stable\`, preserving the **Pixel 9-tested** native Java haptics bridge, InsForge CRUD, demo mode, smart task entry, and Material Expressive UI.
-- Feature branch: \`feat/v0.4-premium-gestures\`.
-- Animation engine: **Motion for React** (\`motion/react\`, v12) using physics-based springs, drag motion values, shared layout animations and enter/exit transitions.
+- Base branch: `release/v0.3-pixel9-stable`, preserving the **Pixel 9-tested** native Java haptics bridge, InsForge CRUD, demo mode, smart task entry, and Material Expressive UI.
+- Feature branch: `feat/v0.4-premium-gestures`.
+- Animation engine: **Motion for React** (`motion/react`, v12) using physics-based springs, drag motion values, shared layout animations and enter/exit transitions.
 - Runtime: React in Capacitor's Android WebView; these transforms are optimized by the browser renderer. We deliberately do not animate individual CSS pixels with repeated React state updates.
-- No network CDN required: Motion is packaged into Vite's local \`dist\` assets.
-- Haptic implementation stays unchanged: Android Java \`DaymarkHapticsPlugin\` called through \`src/lib/haptics.js\`.
+- No network CDN required: Motion is packaged into Vite's local `dist` assets.
+- Haptic implementation stays unchanged: Android Java `DaymarkHapticsPlugin` called through `src/lib/haptics.js`.
 
 ## Interaction semantics
 
@@ -24,22 +24,22 @@
 | FAB press | Small spring compression | Existing native action |
 | Task list changes | Position layout transitions | No extra haptics |
 
-**Safety:** tasks are never deleted simply by swiping. Explicit Delete is still guarded by the pre-existing confirmation dialog. The swipe classifier (\`src/lib/gestures.js\`) is independently tested.
+**Safety:** tasks are never deleted simply by swiping. Explicit Delete is still guarded by the pre-existing confirmation dialog. The swipe classifier (`src/lib/gestures.js`) is independently tested.
 
 ## Accessibility and performance
 
-- **Reduced motion**: both Daymark's Gentle motion toggle and Android/browser \`prefers-reduced-motion\` disable nonessential transforms.
-- **Vertical scrolling**: task surface uses \`touch-action:pan-y\` and horizontal-only drag; scroll gestures cancel pending long press.
-- **No haptic buzz**: Motion drives visuals only; no duration waveforms, no \`navigator.vibrate()\`.
+- **Reduced motion**: both Daymark's Gentle motion toggle and Android/browser `prefers-reduced-motion` disable nonessential transforms.
+- **Vertical scrolling**: task surface uses `touch-action:pan-y` and horizontal-only drag; scroll gestures cancel pending long press.
+- **No haptic buzz**: Motion drives visuals only; no duration waveforms, no `navigator.vibrate()`.
 - **Keyboard**: tab to a row, Enter/Space opens its menu; Escape closes; visible More button is an alternative to long press.
 - Task animations use compositor-friendly transforms and bounded springs. Exact frame rate needs real-device profiling; CI compilation is not a performance benchmark.
 - Offline task mode and InsForge schema are unchanged.
 
 ## Local Pixel 9 QA
 
-**VS Code terminal — from the \`daymark-expressive\` root (not \`android/\`)**:
+**VS Code terminal — from the `daymark-expressive` root (not `android/`)**:
 
-\`\`\`powershell
+```powershell
 git status --short
 git fetch origin
 git switch -c preview/daymark-v04 --track origin/feat/v0.4-premium-gestures
@@ -48,9 +48,9 @@ npm test
 npm run build
 npx cap sync android
 npx cap open android
-\`\`\`
+```
 
-**Android Studio**: verify the opened project path ends in \`daymark-expressive/android\`, select your Pixel 9, then Run \`app\`.
+**Android Studio**: verify the opened project path ends in `daymark-expressive/android`, select your Pixel 9, then Run `app`.
 
 Test at least:
 1. With 20+ tasks, scroll vertically. No accidental completions or context menus.
@@ -68,4 +68,7 @@ Test at least:
 - Motion values: https://motion.dev/docs/react-motion-value
 - Android haptics: https://developer.android.com/develop/ui/views/haptics/haptics-principles
 
-No \`main\` merge or production InsForge deploy is performed automatically.
+No `main` merge or production InsForge deploy is performed automatically.
+
+### GSAP comparison
+GSAP can also animate React DOM elements in an Android Capacitor WebView. Daymark v0.4 chooses Motion for React because touch drag, spring transitions, shared layout and stateful component lifecycles are integrated directly. We avoid installing two animation engines unnecessarily.

@@ -82,6 +82,21 @@ export default function GestureTaskRow({
     }
   }, [menuOpen])
 
+  // Dismiss revealed swipe actions when the user moves to another task.
+  // No destructive operation is performed by this dismissal.
+  useEffect(() => {
+    if (!revealed) return
+    const closeOnOutside = event => {
+      if (!rowRef.current?.contains(event.target)) {
+        setRevealed(false)
+        if (quiet) x.set(0)
+        else animate(x, 0, SPRING)
+      }
+    }
+    document.addEventListener('pointerdown', closeOnOutside)
+    return () => document.removeEventListener('pointerdown', closeOnOutside)
+  }, [revealed, quiet, x])
+
   const run = async action => {
     if (busy) return
     stopHold()
