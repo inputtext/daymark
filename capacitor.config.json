@@ -1,5 +1,11 @@
 {
   "appId": "com.piyush.daymark",
   "appName": "Daymark",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "hidden": false
+    }
+  }
 }

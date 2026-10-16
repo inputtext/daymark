@@ -9,6 +9,7 @@ import { insforge, INSFORGE_CONFIGURED } from './lib/insforge.js'
 import { createDemoTasks, dateISO, filterTasks, getDueLabel, getStats, shiftDate } from './lib/tasks.js'
 import { parseSmartTask } from './lib/smartTask.js'
 import { hapticFeedback, normalizeHapticLevel } from './lib/haptics.js'
+import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
 
 const STORAGE = 'daymark:demo-tasks:v1'
 const THEME = 'daymark:theme'
@@ -209,6 +210,11 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     localStorage.setItem(THEME, theme)
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#15131d' : '#f5f3fa')
+    if (Capacitor.isNativePlatform()) {
+      // Keep system bar icon contrast consistent with Daymark's theme.
+      void SystemBars.setStyle({style: theme === 'dark' ? SystemBarsStyle.Dark : SystemBarsStyle.Light}).catch(() => {})
+    }
   }, [theme])
   useEffect(() => {
     document.documentElement.dataset.palette = palette
