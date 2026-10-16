@@ -72,3 +72,14 @@ Try **Subtle**, **Balanced**, then **Strong** in the sparkle **Personalize** pan
 - Capacitor's public Haptics plugin is not a precision vibration motor controller; distinct profiles are best-effort platform patterns.
 - Android native behavior needs the owner's Pixel 9 for end-to-end validation; GitHub CI validates unit tests and Vite build, **not Android hardware**.
 - No automatic InsForge deployment or Play Store release is performed by merging this PR.
+
+
+## Pixel-tuned haptics v2
+- Replaces multi-pulse Capacitor effects and navigator.vibrate() with a custom Java plugin, DaymarkHaptics, registered in MainActivity.
+- For normal touches, uses action-based Android View.performHapticFeedback constants, honoring Android's global Touch feedback setting.
+- For important Strong-mode touches, only uses OEM-tuned VibrationEffect.EFFECT_HEAVY_CLICK when native hardware support is confirmed. Otherwise system feedback/silence; never fallback to generic buzz.
+- 55ms rate-limit protects against rapid redundant haptics. Background interactions and disabled settings are silent.
+- The Personalize panel offers **Soft tick**, **Button click**, and **Task done** to compare nuanced feedback.
+- Native Java Gradle build is included in GitHub Actions; physical Pixel 9 test remains required.
+
+Sources: https://developer.android.com/develop/ui/views/haptics/haptics-apis , https://developer.android.com/develop/ui/views/haptics/haptics-principles , https://capacitorjs.com/docs/android/custom-code

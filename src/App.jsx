@@ -391,11 +391,17 @@ function App() {
           </fieldset>
           <div className="motion-choice"><div><strong>Gentle motion</strong><p>Keep expressive transitions on, or reduce animation.</p></div><button className={`motion-toggle ${lessMotion?'selected':''}`} aria-label="Reduce animation" aria-pressed={lessMotion} onClick={()=>{feel('selection');setLessMotion(value=>!value)}}><span/></button></div>
           <div className="haptic-section">
-            <div className="haptic-section-title"><strong>Touch feedback</strong><p>Give each action its own distinct feel. Physical feedback varies by device.</p></div>
+            <div className="haptic-section-title"><strong>Touch feedback</strong><p>Crisp, Pixel-tuned touch feedback. Your Android vibration settings are respected.</p></div>
             <div className="haptic-options" role="group" aria-label="Haptic feedback intensity">
               {['off','subtle','balanced','strong'].map(level=><button key={level} type="button" className={hapticLevel===level?'selected':''} aria-pressed={hapticLevel===level} onClick={()=>{setHapticLevel(level);feel('selection',level)}}>{level}</button>)}
             </div>
-            <button type="button" className="haptic-preview" onClick={()=>feel('complete')} disabled={hapticLevel==='off'}>Test feedback <Sparkles size={17}/></button>
+            <div className="haptic-samples" role="group" aria-label="Compare native haptic feedback">
+              {[
+                {kind:'selection',label:'Soft tick'},
+                {kind:'action',label:'Button click'},
+                {kind:'complete',label:'Task done'},
+              ].map(sample=><button key={sample.kind} type="button" disabled={hapticLevel==='off'} onClick={()=>feel(sample.kind)} aria-label={`Try ${sample.label} feedback`}><span className="haptic-sample-icon"><Sparkles size={14}/></span><span>{sample.label}</span></button>)}
+            </div>
           </div>
           <button className="button-primary appearance-done" onClick={()=>{feel('action');setAppearanceOpen(false)}}>Looks good <Check size={18}/></button>
         </section>
