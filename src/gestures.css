@@ -14,7 +14,7 @@
   transform:none;
   overflow:visible;
 }
-.gesture-task-row:hover{transform:none!important;background:transparent!important}
+.gesture-task-row:hover{transform:none;background:transparent!important}
 .gesture-task-row.gesture-menu-open{z-index:9}
 .gesture-task-row:focus-visible{outline:3px solid var(--accent);outline-offset:-3px;border-radius:18px!important}
 .gesture-task-surface{
@@ -32,7 +32,7 @@
   user-select:none;
   -webkit-user-select:none;
   -webkit-tap-highlight-color:transparent;
-  will-change:transform;
+  will-change:auto;
   box-shadow:0 1px 0 rgba(0,0,0,.015);
 }
 .gesture-task-surface:focus-within{background:var(--field)}
@@ -177,3 +177,5 @@
 .v04-appearance-scrim,.v04-appearance-panel{animation:none!important}
 .v04-appearance-panel{will-change:transform,opacity}
 .v04-toast{will-change:transform,opacity}
+
+.gesture-task-surface:active{will-change:transform}

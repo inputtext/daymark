@@ -108,7 +108,9 @@ export default function GestureTaskRow({
   }
   const onDrag = () => {
     const current = x.get()
-    const beyond = current >= 95 || current <= -72
+    // A confirmed completion produces its own native haptic. Only tick when
+    // revealing actions, otherwise a quick swipe could double-vibrate.
+    const beyond = current <= -72
     if (beyond && !crossed.current) {
       crossed.current = true
       feel('selection')
