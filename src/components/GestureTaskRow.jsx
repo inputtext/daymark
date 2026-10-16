@@ -131,9 +131,10 @@ export default function GestureTaskRow({
     // revealing actions, otherwise a quick swipe could double-vibrate.
     const beyond = current <= -72
     if (beyond && !crossed.current) {
+      // At most one crisp selection tick per drag, even if the finger jitters.
       crossed.current = true
       feel('selection')
-    } else if (!beyond) crossed.current = false
+    }
   }
   const onDragEnd = (_event, info) => {
     stopHold()
