@@ -15,3 +15,11 @@ Daymark's Expressive visual foundation is an original, Material 3 Expressive-ins
 - Haptics are a separate follow-up PR once the tested Capacitor Android source and corresponding lockfile are committed; the UI does not claim native haptics today.
 - No InsForge schema/auth changes. No cloud AI integration.
 - Test both logged-in and demo modes, dark/light palettes, 320px–desktop widths, screen reader navigation and `prefers-reduced-motion`.
+
+## Tactile feedback orchestration (PR #3)
+
+- `src/lib/haptics.js` implements selection, action, success, completed task, warning and error feedback profiles with independent **Off / Subtle / Balanced / Strong** preference stored in `daymark:haptics`.
+- Haptic actions are non-blocking and run only on interactions / completed task mutations, never on passive scrolling or background refresh.
+- The adapter uses `window.Capacitor.Plugins.Haptics` when a bridge is available and `navigator.vibrate` otherwise. The browser Vibration API may be unavailable in a WebView. Native vibration has **not yet been validated** on the Pixel 9.
+- Final guaranteed native Capacitor integration needs the tested Android project and package-lock committed; then import the official `@capacitor/haptics` package directly, and optionally add a Kotlin native haptic composition bridge for more precise feedback.
+- Different presets are semantic profiles, **not guaranteed physical motor amplitude controls**. Always respect the system haptic settings and user setting `Off`.

@@ -216,3 +216,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 :root[data-less-motion='true'] *, :root[data-less-motion='true'] *::before, :root[data-less-motion='true'] *::after{
   scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important
 }
+
+/* Daymark tactile settings. Perceived intensity varies by hardware. */
+.haptic-section{margin:0 0 28px;padding:0 0 28px;border-bottom:1px solid var(--line)}
+.haptic-section-title strong{color:var(--ink);font-size:14px}
+.haptic-section-title p{font-size:11px;color:var(--muted);line-height:1.55;margin:6px 0 18px}
+.haptic-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:5px;border-radius:999px;background:var(--field)}
+.haptic-options button{border:0;border-radius:999px;min-height:37px;padding:8px 4px;color:var(--muted);background:transparent;font-size:11px;text-transform:capitalize;font-weight:700;transition:background .2s var(--ex-ease),color .2s var(--ex-ease)}
+.haptic-options button.selected{background:var(--ex-tonal);color:var(--ex-on-tonal)}
+.haptic-preview{border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--accent);display:flex;justify-content:center;align-items:center;gap:8px;width:100%;min-height:45px;font-weight:800;font-size:12px;margin-top:15px}
+.haptic-preview:disabled{opacity:.45;cursor:not-allowed}
