@@ -10,6 +10,9 @@ import { createDemoTasks, dateISO, filterTasks, getDueLabel, getStats, shiftDate
 import { parseSmartTask } from './lib/smartTask.js'
 import { hapticFeedback, normalizeHapticLevel } from './lib/haptics.js'
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
+import { motion, MotionConfig, AnimatePresence, LayoutGroup } from 'motion/react'
+import GestureTaskRow from './components/GestureTaskRow.jsx'
+import { SPRING } from './lib/gestures.js'
 
 const STORAGE = 'daymark:demo-tasks:v1'
 const THEME = 'daymark:theme'
@@ -133,7 +136,7 @@ function AuthScreen({ onDemo, onAuth, notify }) {
   </div>
 }
 
-function TaskModal({ task, initialDue, onClose, onSave, busy }) {
+function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion }) {
   const [title, setTitle] = useState(task?.title || '')
   const [notes, setNotes] = useState(task?.notes || '')
   const [dueDate, setDueDate] = useState(task?.due_date || initialDue || '')
@@ -158,8 +161,8 @@ function TaskModal({ task, initialDue, onClose, onSave, busy }) {
     if (!clean) return
     onSave({ title: clean, notes: notes.trim(), due_date: dueDate || null, priority })
   }
-  return <div className="modal-shade" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
-    <section className="modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+  return <motion.div className="modal-shade v04-modal-shade" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:reducedMotion?0:.18}} onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
+    <motion.section className="modal v04-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title" initial={reducedMotion?false:{opacity:0,y:46,scale:.96}} animate={{opacity:1,y:0,scale:1}} exit={reducedMotion?{opacity:0}:{opacity:0,y:30,scale:.97}} transition={reducedMotion?{duration:0}:{type:"spring",stiffness:430,damping:35,mass:.95}}>
       <div className="modal-head"><div><span className="modal-kicker">YOUR TO-DO LIST</span><h2 id="task-modal-title">{task ? 'Edit task' : 'Create a task'}</h2></div><button className="icon-button" aria-label="Close" onClick={onClose}><X size={21}/></button></div>
       <form onSubmit={save} className="task-form">
         <label>Task name <input ref={titleRef} className="form-input" maxLength={240} required placeholder="Try: Review notes tomorrow !high" value={title} onChange={e=>setTitle(e.target.value)}/></label>
@@ -169,8 +172,8 @@ function TaskModal({ task, initialDue, onClose, onSave, busy }) {
         <div className="form-cols"><label>Due date <input type="date" className="form-input" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label><label>Priority <select className="form-input" value={priority} onChange={e=>setPriority(e.target.value)}><option value="low">Low priority</option><option value="medium">Medium priority</option><option value="high">High priority</option></select></label></div>
         <div className="modal-actions"><button type="button" className="button-cancel" onClick={onClose}>Cancel</button><button className="button-primary" type="submit" disabled={busy}>{busy ? <LoaderCircle size={17} className="spin"/> : <Plus size={17}/>} {task ? 'Save changes' : 'Add task'}</button></div>
       </form>
-    </section>
-  </div>
+    </motion.section>
+  </motion.div>
 }
 
 function App() {
@@ -329,6 +332,22 @@ function App() {
     feel('warning')
     notify('Task deleted')
   }
+  const rescheduleTask = async (task, dueDate) => {
+    try {
+      if (session === 'demo') {
+        writeDemo(tasks.map(t => t.id === task.id ? {...t,due_date:dueDate,updated_at:new Date().toISOString()} : t))
+      } else {
+        const {error} = await insforge.database.from('tasks').update({due_date:dueDate}).eq('id',task.id)
+        if (error) throw error
+        await refresh()
+      }
+      feel('success')
+      notify(dueDate === today ? 'Moved to today' : 'Moved to tomorrow')
+    } catch (error) {
+      feel('error')
+      notify('Could not reschedule task: ' + error.message)
+    }
+  }
   const stats = useMemo(() => getStats(tasks, today), [tasks,today])
   const visible = useMemo(() => filterTasks(tasks,{view,query,priority,sort,today}), [tasks,view,query,priority,sort,today])
   const progress = stats.all ? Math.round(stats.completed / stats.all * 100) : 0
@@ -339,15 +358,13 @@ function App() {
   if (session === 'loading') return <div className="splash"><Logo /><LoaderCircle size={28} className="spin"/></div>
   if (session === 'guest') return <AuthScreen onDemo={startDemo} onAuth={authenticated} notify={notify}/>
 
-  const renderTask = task => {
-    const due = getDueLabel(task.due_date,today)
+  const renderTask = (task, index) => {
+    const due = getDueLabel(task.due_date, today)
     const overdue = task.due_date && task.due_date < today && !task.is_complete
-    return <article key={task.id} className={`task-row ${task.is_complete?'task-done':''}`}>
-      <button title={task.is_complete?'Mark incomplete':'Mark complete'} aria-label={`${task.is_complete?'Mark incomplete':'Complete'}: ${task.title}`} className={`task-toggle ${task.is_complete?'is-checked':''}`} onClick={()=>toggleTask(task)}>{task.is_complete?<Check size={17} strokeWidth={3}/>:null}</button>
-      <div className="task-main"><span className="task-name">{task.title}</span>{task.notes && <p className="task-notes">{task.notes}</p>}</div>
-      <div className="task-labels"><span className={`priority-badge priority-${task.priority}`}><span className="badge-circle" />{task.priority}</span>{due && <span className={`due-badge ${overdue?'due-overdue':''}`}><CalendarDays size={13}/>{due}</span>}</div>
-      <div className="task-actions"><button title="Edit" aria-label={`Edit ${task.title}`} onClick={()=>{feel('action');setModal({task})}}><Pencil size={16}/></button><button title="Delete" aria-label={`Delete ${task.title}`} onClick={()=>deleteTask(task)}><Trash2 size={16}/></button></div>
-    </article>
+    return <GestureTaskRow key={task.id} task={task} index={index} due={due} overdue={overdue}
+      today={today} tomorrow={shiftDate(1)} reducedMotion={lessMotion} feel={feel}
+      onToggle={toggleTask} onEdit={t=>{feel('action');setModal({task:t})}}
+      onDelete={deleteTask} onReschedule={rescheduleTask}/>
   }
   const groups = view === 'inbox' && sort === 'smart' && !query && priority === 'all'
     ? [
@@ -357,7 +374,7 @@ function App() {
       ].filter(group=>group.items.length)
     : [{name:view==='completed'?'Finished tasks':'Your tasks',items:visible}]
 
-  return <div className="app-shell">
+  return <MotionConfig reducedMotion={lessMotion ? "always" : "user"} transition={SPRING}><div className="app-shell">
     <aside className={`sidebar ${sidebarOpen?'mobile-open':''}`}>
       <div className="sidebar-top"><Logo light /><button className="sidebar-close" onClick={()=>{feel('selection');setSidebarOpen(false)}} aria-label="Close menu"><X size={18}/></button></div>
       <div className="workspace-label">WORKSPACE <ChevronDown size={13}/></div>
@@ -412,19 +429,24 @@ function App() {
         <div className="stat-grid"><button className="stat-card" onClick={()=>navigate('today')}><span className="stat-icon stat-orange"><Clock3 size={18}/></span><div><span className="stat-value">{stats.today}</span><span className="stat-name">Due today & overdue</span></div><ArrowUpRight className="stat-arrow" size={18}/></button><button className="stat-card" onClick={()=>navigate('upcoming')}><span className="stat-icon stat-purple"><CalendarDays size={18}/></span><div><span className="stat-value">{stats.upcoming}</span><span className="stat-name">Coming up</span></div><ArrowUpRight className="stat-arrow" size={18}/></button><button className="stat-card" onClick={()=>navigate('completed')}><span className="stat-icon stat-green"><CheckCircle2 size={18}/></span><div><span className="stat-value">{stats.completed}</span><span className="stat-name">Tasks completed</span></div><ArrowUpRight className="stat-arrow" size={18}/></button></div>
         <section className="task-panel"><div className="task-panel-top"><div><h2>{view==='inbox'?'Your to-dos':view==='today'?'Your focus list':view==='upcoming'?'Coming up':'Completed tasks'} <span className="task-count">{visible.length}</span></h2><p>A little organization goes a long way.</p></div><div className="task-panel-tools"><button className="text-icon-button" onClick={()=>{setView('inbox');setPriority('all');setQuery('')}}><ListFilter size={16}/> Reset filters</button></div></div>
           <div className="task-filters"><div className="search-box"><Search size={18}/><input ref={searchRef} placeholder="Search your tasks..." aria-label="Search tasks" value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div><div className="filter-selects"><select aria-label="Filter priority" value={priority} onChange={e=>setPriority(e.target.value)}><option value="all">All priorities</option><option value="high">High priority</option><option value="medium">Medium priority</option><option value="low">Low priority</option></select><select aria-label="Sort tasks" value={sort} onChange={e=>setSort(e.target.value)}><option value="smart">Smart sort</option><option value="due">Due date</option><option value="priority">Priority</option></select></div></div>
-          {loadingTasks ? <div className="empty-state"><LoaderCircle size={29} className="spin"/><h3>Getting your tasks…</h3></div> : visible.length ? <div className="task-list">{groups.map(group=><div className="task-group" key={group.name}><div className="task-group-title"><span>{group.name}</span><span>{group.items.length}</span></div>{group.items.map(renderTask)}</div>)}</div> : <div className="empty-state"><div className="empty-illustration"><CheckCheck size={28}/></div><h3>{query || priority!=='all'?'No matching tasks':'A little space to breathe.'}</h3><p>{query || priority!=='all'?'Try a different search or filter.':'No tasks in this view yet. Add one and get moving.'}</p><button className="button-primary" onClick={()=>opening(view==='today'?today:null)}><Plus size={17}/> Add a task</button></div>}
+          {loadingTasks ? <div className="empty-state"><LoaderCircle size={29} className="spin"/><h3>Getting your tasks…</h3></div> : visible.length ? <LayoutGroup id="daymark-task-list"><div className="task-list">{groups.map(group=><motion.div layout={lessMotion ? false : "position"} className="task-group" key={group.name}><div className="task-group-title"><span>{group.name}</span><span>{group.items.length}</span></div><AnimatePresence initial={false}>{group.items.map(renderTask)}</AnimatePresence></motion.div>)}</div></LayoutGroup> : <div className="empty-state"><div className="empty-illustration"><CheckCheck size={28}/></div><h3>{query || priority!=='all'?'No matching tasks':'A little space to breathe.'}</h3><p>{query || priority!=='all'?'Try a different search or filter.':'No tasks in this view yet. Add one and get moving.'}</p><button className="button-primary" onClick={()=>opening(view==='today'?today:null)}><Plus size={17}/> Add a task</button></div>}
           <div className="task-panel-bottom"><div><Keyboard size={16}/> Press <kbd>N</kbd> to create a task · <kbd>/</kbd> to search</div><span>{stats.active} left to do</span></div>
         </section>
         <footer className="app-footer"><span>Made for the little wins. ✦</span><span>{session==='demo'?'Demo • Saved locally':'Securely powered by InsForge'}</span></footer>
       </main>
     </div>
-    <nav className="bottom-nav" aria-label="Mobile task navigation">
-      {NAV.map(item=><button key={item.id} className={`bottom-nav-item ${view===item.id?'active':''}`} aria-current={view===item.id?'page':undefined} onClick={()=>navigate(item.id)}><span className="bottom-nav-icon"><item.icon size={22}/></span><span>{item.label==='All tasks'?'Home':item.label}</span></button>)}
-    </nav>
-    <button className="mobile-fab" aria-label="Create new task" onClick={()=>opening(view==='today'?today:null)}><Plus size={27}/></button>
-    {modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} busy={busy} onSave={saveTask} onClose={()=>!busy&&setModal(null)}/>}
+    <LayoutGroup id="daymark-bottom-navigation"><nav className="bottom-nav" aria-label="Mobile task navigation">
+      {NAV.map(item=><button key={item.id} className={`bottom-nav-item ${view===item.id?'active':''}`} aria-current={view===item.id?'page':undefined} onClick={()=>navigate(item.id)}>
+        <span className="bottom-nav-icon">{view===item.id && (lessMotion ? <span className="v04-nav-pill"/> : <motion.span layoutId="daymark-tab-pill" className="v04-nav-pill" transition={SPRING}/>)}
+          <item.icon className="v04-nav-icon" size={22}/>
+        </span>
+        <span>{item.label==='All tasks'?'Home':item.label}</span>
+      </button>)}
+    </nav></LayoutGroup>
+    <motion.button className="mobile-fab v04-fab" aria-label="Create new task" whileTap={lessMotion?undefined:{scale:.88,rotate:-7}} transition={SPRING} onClick={()=>opening(view==='today'?today:null)}><Plus size={27}/></motion.button>
+    <AnimatePresence>{modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} busy={busy} reducedMotion={lessMotion} onSave={saveTask} onClose={()=>!busy&&setModal(null)}/>}</AnimatePresence>
     {toast && <div role="status" className="toast"><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={15}/></button></div>}
-  </div>
+  </div></MotionConfig>
 }
 
 export default App
