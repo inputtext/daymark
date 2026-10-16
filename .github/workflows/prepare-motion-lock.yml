@@ -1,0 +1,21 @@
+name: Prepare v0.4 Motion lockfile
+
+on:
+  push:
+    branches: [feat/v0.4-premium-gestures]
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Update the npm lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Emit lockfile for review and commit
+        run: |
+          echo "DAYMARK_LOCK_BEGIN"
+          cat package-lock.json
+          echo "DAYMARK_LOCK_END"
