@@ -18,6 +18,7 @@ export default function GestureTaskRow({
   const x = useMotionValue(0)
   const [revealed, setRevealed] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [menuAbove, setMenuAbove] = useState(false)
   const [busy, setBusy] = useState(false)
   const rowRef = useRef(null)
   const menuRef = useRef(null)
@@ -51,6 +52,9 @@ export default function GestureTaskRow({
   const openMenu = () => {
     if (busy) return
     stopHold()
+    const bounds = rowRef.current?.getBoundingClientRect()
+    const visibleHeight = window.visualViewport?.height || window.innerHeight
+    setMenuAbove(Boolean(bounds && visibleHeight - bounds.bottom < 330))
     setRevealed(false)
     snap(0)
     setMenuOpen(true)
@@ -200,7 +204,7 @@ export default function GestureTaskRow({
       {menuOpen && <motion.div
         key="context"
         ref={menuRef}
-        className="gesture-context-menu"
+        className={"gesture-context-menu" + (menuAbove ? " gesture-menu-above" : "")}
         role="menu"
         aria-label={'Actions for ' + task.title}
         initial={quiet ? false : { opacity: 0, y: -10, scale: .93 }}

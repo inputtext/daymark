@@ -41,7 +41,8 @@
 .gesture-task-surface .task-toggle{flex:none;display:grid;place-items:center}
 .gesture-task-surface .task-toggle>span{display:grid;place-items:center}
 .gesture-task-surface button{touch-action:manipulation}
-.gesture-task-surface .task-name,.gesture-task-surface .task-notes{user-select:text;-webkit-user-select:text}
+/* Long press must open task actions, not trigger Android text selection. */
+.gesture-task-surface .task-name,.gesture-task-surface .task-notes{user-select:none;-webkit-user-select:none}
 .gesture-underlay{
   position:absolute;
   inset:0;
@@ -179,3 +180,5 @@
 .v04-toast{will-change:transform,opacity}
 
 .gesture-task-surface:active{will-change:transform}
+
+.gesture-context-menu.gesture-menu-above{top:auto;bottom:calc(100% - 7px);transform-origin:bottom right}
