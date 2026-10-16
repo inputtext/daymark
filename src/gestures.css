@@ -173,3 +173,7 @@
 :root[data-less-motion="true"] .v04-modal,
 :root[data-less-motion="true"] .gesture-task-surface,
 :root[data-less-motion="true"] .v04-fab{will-change:auto}
+
+.v04-appearance-scrim,.v04-appearance-panel{animation:none!important}
+.v04-appearance-panel{will-change:transform,opacity}
+.v04-toast{will-change:transform,opacity}
