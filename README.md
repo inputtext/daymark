@@ -11,6 +11,7 @@ A polished, responsive full-stack todo app powered by **React + Vite + Tailwind 
 - Search, priority filtering, smart sorting and progress tracking
 - Light/dark theme, responsive design, keyboard shortcuts (`N`, `/`, `Ctrl/Cmd+K`)
 - Built-in **demo mode** using localStorage, without a backend
+- Offline Smart Task Entry: try `Submit assignment tomorrow !high` and press **Apply** to accept the extracted date and priority (no external AI API)
 - Backend with PostgreSQL row-level security (users cannot read each other's tasks)
 
 ## Local preview
@@ -41,17 +42,14 @@ Open the localhost URL printed by Vite and click **Explore the demo**. The demo 
    npx @insforge/cli create --json --name daymark --org-id YOUR_ORG_ID --region ap-southeast --template empty
    ```
 
-3. Create a migration via the CLI:
+3. The tracked database migration is `migrations/20261016150709_create-tasks.sql`. Apply it if it has not already been applied to the linked backend:
 
    ```bash
-   npx @insforge/cli db migrations new create_tasks
-   ```
-
-   Copy the contents of `migrations/001_create_tasks.sql` into the **newly created migration file** printed by the command. Then run:
-
-   ```bash
+   npx @insforge/cli db migrations list
    npx @insforge/cli db migrations up --all
    ```
+
+   The CLI reporting **no pending local migrations** is normal when the migration has already been applied. Verify the table with `npx @insforge/cli db query "SELECT to_regclass('public.tasks') AS tasks_table;"` if necessary.
 
 4. Copy `.env.example` to `.env` and replace the placeholders:
 
@@ -95,9 +93,21 @@ npm run build
 - `src/lib/insforge.js` — InsForge client setup
 - `src/lib/tasks.js` — task sorting/filtering/date utilities
 - `src/styles.css` — responsive visual design and dark mode
-- `migrations/001_create_tasks.sql` — database, grants and RLS policies
+- `migrations/20261016150709_create-tasks.sql` — database, grants and RLS policies
+- `src/lib/smartTask.js` — no-API natural-language task parsing
+- `tests/smartTask.test.mjs` — deterministic smart-entry tests
 - `vercel.json` — SPA hosting rewrites
 
 ## Security notes
 
 Task rows are owned by the authenticated InsForge user. The SQL migration grants table access to `authenticated`, revokes access from `anon`, and uses owner-only RLS policies on SELECT, INSERT, UPDATE and DELETE. The app never exposes an admin/service key to the browser. Browser demo data is **not** uploaded to cloud and should not be used to store sensitive tasks.
+
+## Offline Smart Task Entry
+
+In **New task**, type a title containing a supported marker, for example:
+
+- `Submit assignment tomorrow !high`
+- `Plan presentation next week !medium`
+- `Buy groceries in 3 days !low`
+
+Daymark shows a non-destructive suggestion preview. Click **Apply** to fill in the task title, calendar due date, and priority; review or edit the fields before saving. Pressing **Add task** without applying suggestions saves exactly what you typed. The parser runs locally, in both demo and signed-in mode, and does not use AI inference or network requests. It does not parse times of day, weekday names, hashtags, or free-form dates yet.

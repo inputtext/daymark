@@ -7,6 +7,9 @@ import {
 } from 'lucide-react'
 import { insforge, INSFORGE_CONFIGURED } from './lib/insforge.js'
 import { createDemoTasks, dateISO, filterTasks, getDueLabel, getStats, shiftDate } from './lib/tasks.js'
+import { parseSmartTask } from './lib/smartTask.js'
+import { hapticFeedback, normalizeHapticLevel } from './lib/haptics.js'
+import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
 
 const STORAGE = 'daymark:demo-tasks:v1'
 const THEME = 'daymark:theme'
@@ -135,6 +138,13 @@ function TaskModal({ task, initialDue, onClose, onSave, busy }) {
   const [notes, setNotes] = useState(task?.notes || '')
   const [dueDate, setDueDate] = useState(task?.due_date || initialDue || '')
   const [priority, setPriority] = useState(task?.priority || 'medium')
+  const smart = useMemo(() => task ? null : parseSmartTask(title), [task, title])
+  const applySuggestions = () => {
+    if (!smart?.hasSuggestions) return
+    setTitle(smart.title)
+    if (smart.due_date) setDueDate(smart.due_date)
+    if (smart.priority) setPriority(smart.priority)
+  }
   const titleRef = useRef(null)
   useEffect(() => {
     titleRef.current?.focus()
@@ -152,7 +162,9 @@ function TaskModal({ task, initialDue, onClose, onSave, busy }) {
     <section className="modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
       <div className="modal-head"><div><span className="modal-kicker">YOUR TO-DO LIST</span><h2 id="task-modal-title">{task ? 'Edit task' : 'Create a task'}</h2></div><button className="icon-button" aria-label="Close" onClick={onClose}><X size={21}/></button></div>
       <form onSubmit={save} className="task-form">
-        <label>Task name <input ref={titleRef} className="form-input" maxLength={240} required placeholder="What needs to get done?" value={title} onChange={e=>setTitle(e.target.value)}/></label>
+        <label>Task name <input ref={titleRef} className="form-input" maxLength={240} required placeholder="Try: Review notes tomorrow !high" value={title} onChange={e=>setTitle(e.target.value)}/></label>
+        {!task && <p className="smart-entry-hint"><Sparkles size={14} aria-hidden="true"/> Offline smart entry: today, tomorrow, next week, in 3 days, !high / !medium / !low</p>}
+        {smart?.hasSuggestions && <div className="smart-entry-preview" role="status"><div className="smart-entry-copy"><strong><Sparkles size={14} aria-hidden="true"/> Smart suggestions</strong><span>{[smart.due_date && `Due ${smart.due_date}`, smart.priority && `${smart.priority} priority`].filter(Boolean).join(' · ')}</span></div><button type="button" onClick={applySuggestions} aria-label="Apply suggested date and priority">Apply</button></div>}
         <label>Notes <textarea className="form-input" maxLength={4000} rows={3} placeholder="Add a little context (optional)" value={notes} onChange={e=>setNotes(e.target.value)}/></label>
         <div className="form-cols"><label>Due date <input type="date" className="form-input" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label><label>Priority <select className="form-input" value={priority} onChange={e=>setPriority(e.target.value)}><option value="low">Low priority</option><option value="medium">Medium priority</option><option value="high">High priority</option></select></label></div>
         <div className="modal-actions"><button type="button" className="button-cancel" onClick={onClose}>Cancel</button><button className="button-primary" type="submit" disabled={busy}>{busy ? <LoaderCircle size={17} className="spin"/> : <Plus size={17}/>} {task ? 'Save changes' : 'Add task'}</button></div>
@@ -175,6 +187,22 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME) || 'light')
+  const [palette, setPalette] = useState(() => {
+    try { return ['iris','lagoon','citrus','rose'].includes(localStorage.getItem('daymark:palette')) ? localStorage.getItem('daymark:palette') : 'iris' }
+    catch { return 'iris' }
+  })
+  const [lessMotion, setLessMotion] = useState(() => {
+    try { return localStorage.getItem('daymark:less-motion') === 'true' }
+    catch { return false }
+  })
+  const [appearanceOpen, setAppearanceOpen] = useState(false)
+  const [hapticLevel, setHapticLevel] = useState(() => {
+    try { return normalizeHapticLevel(localStorage.getItem('daymark:haptics')) }
+    catch { return 'balanced' }
+  })
+  const feel = useCallback((kind, level = hapticLevel) => {
+    void hapticFeedback(kind, level)
+  }, [hapticLevel])
   const searchRef = useRef(null)
   const today = dateISO()
   const notify = useCallback(message => setToast(message), [])
@@ -182,7 +210,23 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     localStorage.setItem(THEME, theme)
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#15131d' : '#f5f3fa')
+    if (Capacitor.isNativePlatform()) {
+      // Keep system bar icon contrast consistent with Daymark's theme.
+      void SystemBars.setStyle({style: theme === 'dark' ? SystemBarsStyle.Dark : SystemBarsStyle.Light}).catch(() => {})
+    }
   }, [theme])
+  useEffect(() => {
+    document.documentElement.dataset.palette = palette
+    try { localStorage.setItem('daymark:palette',palette) } catch { /* private browsing */ }
+  }, [palette])
+  useEffect(() => {
+    try { localStorage.setItem('daymark:haptics', hapticLevel) } catch { /* storage disabled */ }
+  }, [hapticLevel])
+  useEffect(() => {
+    document.documentElement.dataset.lessMotion = String(lessMotion)
+    try { localStorage.setItem('daymark:less-motion',String(lessMotion)) } catch { /* private browsing */ }
+  }, [lessMotion])
   useEffect(() => {
     if (!toast) return
     const id = setTimeout(() => setToast(''), 3500)
@@ -227,7 +271,7 @@ function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [modal, session])
 
-  const startDemo = () => { setTasks(getDemo());setSession('demo');setView('inbox') }
+  const startDemo = () => { feel('success');setTasks(getDemo());setSession('demo');setView('inbox') }
   const authenticated = person => {setUser(person);setSession('cloud');setView('inbox')}
   const signOut = async () => {
     if (session === 'cloud' && insforge) {
@@ -257,8 +301,9 @@ function App() {
         await refresh()
       }
       setModal(null)
+      feel('success')
       notify(modal?.task ? 'Task updated successfully' : 'A new task was added')
-    } catch (e) {notify(`Could not save task: ${e.message}`)}
+    } catch (e) {feel('error');notify(`Could not save task: ${e.message}`)}
     finally {setBusy(false)}
   }
   const toggleTask = async task => {
@@ -270,6 +315,7 @@ function App() {
       if (error) {notify(error.message);return}
       await refresh()
     }
+    feel(value ? 'complete' : 'selection')
     notify(value ? 'Nicely done! Task completed.' : 'Task moved back to your list.')
   }
   const deleteTask = async task => {
@@ -280,13 +326,14 @@ function App() {
       if (error) {notify(error.message);return}
       await refresh()
     }
+    feel('warning')
     notify('Task deleted')
   }
   const stats = useMemo(() => getStats(tasks, today), [tasks,today])
   const visible = useMemo(() => filterTasks(tasks,{view,query,priority,sort,today}), [tasks,view,query,priority,sort,today])
   const progress = stats.all ? Math.round(stats.completed / stats.all * 100) : 0
-  const navigate = id => {setView(id);setSidebarOpen(false)}
-  const opening = (due) => setModal({due})
+  const navigate = id => {feel('selection');setView(id);setSidebarOpen(false);setAppearanceOpen(false)}
+  const opening = (due) => {feel('action');setModal({due})}
   const currentDate = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})
 
   if (session === 'loading') return <div className="splash"><Logo /><LoaderCircle size={28} className="spin"/></div>
@@ -299,7 +346,7 @@ function App() {
       <button title={task.is_complete?'Mark incomplete':'Mark complete'} aria-label={`${task.is_complete?'Mark incomplete':'Complete'}: ${task.title}`} className={`task-toggle ${task.is_complete?'is-checked':''}`} onClick={()=>toggleTask(task)}>{task.is_complete?<Check size={17} strokeWidth={3}/>:null}</button>
       <div className="task-main"><span className="task-name">{task.title}</span>{task.notes && <p className="task-notes">{task.notes}</p>}</div>
       <div className="task-labels"><span className={`priority-badge priority-${task.priority}`}><span className="badge-circle" />{task.priority}</span>{due && <span className={`due-badge ${overdue?'due-overdue':''}`}><CalendarDays size={13}/>{due}</span>}</div>
-      <div className="task-actions"><button title="Edit" aria-label={`Edit ${task.title}`} onClick={()=>setModal({task})}><Pencil size={16}/></button><button title="Delete" aria-label={`Delete ${task.title}`} onClick={()=>deleteTask(task)}><Trash2 size={16}/></button></div>
+      <div className="task-actions"><button title="Edit" aria-label={`Edit ${task.title}`} onClick={()=>{feel('action');setModal({task})}}><Pencil size={16}/></button><button title="Delete" aria-label={`Delete ${task.title}`} onClick={()=>deleteTask(task)}><Trash2 size={16}/></button></div>
     </article>
   }
   const groups = view === 'inbox' && sort === 'smart' && !query && priority === 'all'
@@ -312,7 +359,7 @@ function App() {
 
   return <div className="app-shell">
     <aside className={`sidebar ${sidebarOpen?'mobile-open':''}`}>
-      <div className="sidebar-top"><Logo light /><button className="sidebar-close" onClick={()=>setSidebarOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
+      <div className="sidebar-top"><Logo light /><button className="sidebar-close" onClick={()=>{feel('selection');setSidebarOpen(false)}} aria-label="Close menu"><X size={18}/></button></div>
       <div className="workspace-label">WORKSPACE <ChevronDown size={13}/></div>
       <nav className="side-nav" aria-label="Task views">
         {NAV.map(item => <button key={item.id} className={`nav-button ${view===item.id?'selected':''}`} onClick={()=>navigate(item.id)}><item.icon size={18}/><span>{item.label}</span><span className="nav-count">{stats[item.id==='inbox'?'all':item.id] || 0}</span></button>)}
@@ -328,7 +375,37 @@ function App() {
     {sidebarOpen && <div className="mobile-dim" onClick={()=>setSidebarOpen(false)}/>}
 
     <div className="app-content">
-      <header className="topbar"><div className="topbar-leading"><button className="mobile-menu icon-button" onClick={()=>setSidebarOpen(true)} aria-label="Open menu"><LayoutGrid size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <strong>{NAV.find(x=>x.id===view)?.label}</strong></span></div><div className="topbar-actions"><span className="topbar-date"><CalendarDays size={15}/> {currentDate}</span><button className="theme-button" title={`Switch to ${theme==='light'?'dark':'light'} mode`} onClick={()=>setTheme(theme==='light'?'dark':'light')}>{theme==='light'?<Moon size={18}/>:<Sun size={18}/>}</button><span className="header-avatar">{session==='demo'?'D':(user?.email||'U')[0].toUpperCase()}</span></div></header>
+      <header className="topbar"><div className="topbar-leading"><button className="mobile-menu icon-button" onClick={()=>{feel('selection');setSidebarOpen(true)}} aria-label="Open menu"><LayoutGrid size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <strong>{NAV.find(x=>x.id===view)?.label}</strong></span></div><div className="topbar-actions"><span className="topbar-date"><CalendarDays size={15}/> {currentDate}</span><button className="appearance-trigger theme-button" title="Personalize Daymark" aria-label="Personalize appearance" aria-expanded={appearanceOpen} onClick={()=>{feel('selection');setAppearanceOpen(open=>!open)}}><Sparkles size={18}/></button><button className="theme-button" title={`Switch to ${theme==='light'?'dark':'light'} mode`} onClick={()=>{feel('selection');setTheme(theme==='light'?'dark':'light')}}>{theme==='light'?<Moon size={18}/>:<Sun size={18}/>}</button><span className="header-avatar">{session==='demo'?'D':(user?.email||'U')[0].toUpperCase()}</span></div></header>
+      {appearanceOpen && <div className="appearance-scrim" onMouseDown={event=>{if(event.target===event.currentTarget)setAppearanceOpen(false)}}>
+        <section className="appearance-panel" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
+          <div className="appearance-header"><div><span className="modal-kicker">YOUR DAY, YOUR WAY</span><h2 id="appearance-title">Make it yours <Sparkles size={20}/></h2><p>A little color makes every day brighter.</p></div><button className="icon-button" aria-label="Close appearance settings" onClick={()=>setAppearanceOpen(false)}><X size={19}/></button></div>
+          <fieldset className="palette-options"><legend>COLOR STORY</legend>
+            {[
+              {id:'iris',label:'Iris',description:'Playful violet'},
+              {id:'lagoon',label:'Lagoon',description:'Deep turquoise'},
+              {id:'citrus',label:'Citrus',description:'Sunny amber'},
+              {id:'rose',label:'Rose',description:'Warm berry'},
+            ].map(choice=><button key={choice.id} type="button" className={`palette-option ${palette===choice.id?'selected':''}`} aria-pressed={palette===choice.id} onClick={()=>{setPalette(choice.id);feel('selection')}}>
+              <span className={`palette-swatch palette-${choice.id}`}>{palette===choice.id && <Check size={18}/>}</span><span><strong>{choice.label}</strong><small>{choice.description}</small></span>
+            </button>)}
+          </fieldset>
+          <div className="motion-choice"><div><strong>Gentle motion</strong><p>Keep expressive transitions on, or reduce animation.</p></div><button className={`motion-toggle ${lessMotion?'selected':''}`} aria-label="Reduce animation" aria-pressed={lessMotion} onClick={()=>{feel('selection');setLessMotion(value=>!value)}}><span/></button></div>
+          <div className="haptic-section">
+            <div className="haptic-section-title"><strong>Touch feedback</strong><p>Crisp, Pixel-tuned touch feedback. Your Android vibration settings are respected.</p></div>
+            <div className="haptic-options" role="group" aria-label="Haptic feedback intensity">
+              {['off','subtle','balanced','strong'].map(level=><button key={level} type="button" className={hapticLevel===level?'selected':''} aria-pressed={hapticLevel===level} onClick={()=>{setHapticLevel(level);feel('selection',level)}}>{level}</button>)}
+            </div>
+            <div className="haptic-samples" role="group" aria-label="Compare native haptic feedback">
+              {[
+                {kind:'selection',label:'Soft tick'},
+                {kind:'action',label:'Button click'},
+                {kind:'complete',label:'Task done'},
+              ].map(sample=><button key={sample.kind} type="button" disabled={hapticLevel==='off'} onClick={()=>feel(sample.kind)} aria-label={`Try ${sample.label} feedback`}><span className="haptic-sample-icon"><Sparkles size={14}/></span><span>{sample.label}</span></button>)}
+            </div>
+          </div>
+          <button className="button-primary appearance-done" onClick={()=>{feel('action');setAppearanceOpen(false)}}>Looks good <Check size={18}/></button>
+        </section>
+      </div>}
       <main className="main-area">
         <div className="page-heading"><div><div className="eyebrow page-eyebrow"><span className="eyebrow-line"/> A FRESH PERSPECTIVE</div><h1>{TITLES[view][0]}<span className="heading-period">.</span></h1><p>{TITLES[view][1]}</p></div><button className="button-primary heading-add" onClick={()=>opening(view==='today'?today:null)}><Plus size={18}/> New task</button></div>
         <div className="hero-row"><div className="hero-card"><div className="hero-copy"><span className="hero-overline"><Sparkles size={15}/> YOUR DAILY MOMENTUM</span><h2>Make room for <em>progress.</em></h2><p>You don’t have to do it all. Just take the next step.</p><button className="hero-link" onClick={()=>navigate('today')}>See today’s tasks <ArrowRight size={16}/></button></div><div className="hero-orbit ring-one"/><div className="hero-orbit ring-two"/><div className="hero-flower">✳</div></div><div className="progress-card"><div className="progress-card-top"><span>YOUR PROGRESS</span><span className="progress-icon"><CheckCheck size={19}/></span></div><div className="progress-value">{progress}<span>%</span></div><p>{stats.completed} of {stats.all} tasks complete</p><div className="progress-track"><span style={{width:`${progress}%`}}/></div><div className="progress-bottom">{progress===100 && stats.all ? 'All caught up — amazing work!' : 'Keep your momentum going'}<ArrowUpRight size={16}/></div></div></div>
@@ -341,6 +418,10 @@ function App() {
         <footer className="app-footer"><span>Made for the little wins. ✦</span><span>{session==='demo'?'Demo • Saved locally':'Securely powered by InsForge'}</span></footer>
       </main>
     </div>
+    <nav className="bottom-nav" aria-label="Mobile task navigation">
+      {NAV.map(item=><button key={item.id} className={`bottom-nav-item ${view===item.id?'active':''}`} aria-current={view===item.id?'page':undefined} onClick={()=>navigate(item.id)}><span className="bottom-nav-icon"><item.icon size={22}/></span><span>{item.label==='All tasks'?'Home':item.label}</span></button>)}
+    </nav>
+    <button className="mobile-fab" aria-label="Create new task" onClick={()=>opening(view==='today'?today:null)}><Plus size={27}/></button>
     {modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} busy={busy} onSave={saveTask} onClose={()=>!busy&&setModal(null)}/>}
     {toast && <div role="status" className="toast"><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={15}/></button></div>}
   </div>
