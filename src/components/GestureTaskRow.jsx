@@ -50,7 +50,9 @@ export default function GestureTaskRow({
     snap(0)
   }
   const openMenu = () => {
-    if (busy) return
+    // Android may emit a native contextmenu shortly after our hold timer.
+    // Ignore the duplicate so Pixel haptics never fire twice for one hold.
+    if (busy || menuOpen) return
     stopHold()
     const bounds = rowRef.current?.getBoundingClientRect()
     const visibleHeight = window.visualViewport?.height || window.innerHeight
