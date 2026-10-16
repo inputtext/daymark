@@ -8,6 +8,7 @@ import {
 import { insforge, INSFORGE_CONFIGURED } from './lib/insforge.js'
 import { createDemoTasks, dateISO, filterTasks, getDueLabel, getStats, shiftDate } from './lib/tasks.js'
 import { parseSmartTask } from './lib/smartTask.js'
+import { hapticFeedback, normalizeHapticLevel } from './lib/haptics.js'
 
 const STORAGE = 'daymark:demo-tasks:v1'
 const THEME = 'daymark:theme'
@@ -194,6 +195,13 @@ function App() {
     catch { return false }
   })
   const [appearanceOpen, setAppearanceOpen] = useState(false)
+  const [hapticLevel, setHapticLevel] = useState(() => {
+    try { return normalizeHapticLevel(localStorage.getItem('daymark:haptics')) }
+    catch { return 'balanced' }
+  })
+  const feel = useCallback((kind, level = hapticLevel) => {
+    void hapticFeedback(kind, level)
+  }, [hapticLevel])
   const searchRef = useRef(null)
   const today = dateISO()
   const notify = useCallback(message => setToast(message), [])
@@ -206,6 +214,9 @@ function App() {
     document.documentElement.dataset.palette = palette
     try { localStorage.setItem('daymark:palette',palette) } catch { /* private browsing */ }
   }, [palette])
+  useEffect(() => {
+    try { localStorage.setItem('daymark:haptics', hapticLevel) } catch { /* storage disabled */ }
+  }, [hapticLevel])
   useEffect(() => {
     document.documentElement.dataset.lessMotion = String(lessMotion)
     try { localStorage.setItem('daymark:less-motion',String(lessMotion)) } catch { /* private browsing */ }
@@ -254,7 +265,7 @@ function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [modal, session])
 
-  const startDemo = () => { setTasks(getDemo());setSession('demo');setView('inbox') }
+  const startDemo = () => { feel('success');setTasks(getDemo());setSession('demo');setView('inbox') }
   const authenticated = person => {setUser(person);setSession('cloud');setView('inbox')}
   const signOut = async () => {
     if (session === 'cloud' && insforge) {
@@ -284,8 +295,9 @@ function App() {
         await refresh()
       }
       setModal(null)
+      feel('success')
       notify(modal?.task ? 'Task updated successfully' : 'A new task was added')
-    } catch (e) {notify(`Could not save task: ${e.message}`)}
+    } catch (e) {feel('error');notify(`Could not save task: ${e.message}`)}
     finally {setBusy(false)}
   }
   const toggleTask = async task => {
@@ -297,6 +309,7 @@ function App() {
       if (error) {notify(error.message);return}
       await refresh()
     }
+    feel(value ? 'complete' : 'selection')
     notify(value ? 'Nicely done! Task completed.' : 'Task moved back to your list.')
   }
   const deleteTask = async task => {
@@ -307,13 +320,14 @@ function App() {
       if (error) {notify(error.message);return}
       await refresh()
     }
+    feel('warning')
     notify('Task deleted')
   }
   const stats = useMemo(() => getStats(tasks, today), [tasks,today])
   const visible = useMemo(() => filterTasks(tasks,{view,query,priority,sort,today}), [tasks,view,query,priority,sort,today])
   const progress = stats.all ? Math.round(stats.completed / stats.all * 100) : 0
-  const navigate = id => {setView(id);setSidebarOpen(false);setAppearanceOpen(false)}
-  const opening = (due) => setModal({due})
+  const navigate = id => {feel('selection');setView(id);setSidebarOpen(false);setAppearanceOpen(false)}
+  const opening = (due) => {feel('action');setModal({due})}
   const currentDate = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})
 
   if (session === 'loading') return <div className="splash"><Logo /><LoaderCircle size={28} className="spin"/></div>
@@ -326,7 +340,7 @@ function App() {
       <button title={task.is_complete?'Mark incomplete':'Mark complete'} aria-label={`${task.is_complete?'Mark incomplete':'Complete'}: ${task.title}`} className={`task-toggle ${task.is_complete?'is-checked':''}`} onClick={()=>toggleTask(task)}>{task.is_complete?<Check size={17} strokeWidth={3}/>:null}</button>
       <div className="task-main"><span className="task-name">{task.title}</span>{task.notes && <p className="task-notes">{task.notes}</p>}</div>
       <div className="task-labels"><span className={`priority-badge priority-${task.priority}`}><span className="badge-circle" />{task.priority}</span>{due && <span className={`due-badge ${overdue?'due-overdue':''}`}><CalendarDays size={13}/>{due}</span>}</div>
-      <div className="task-actions"><button title="Edit" aria-label={`Edit ${task.title}`} onClick={()=>setModal({task})}><Pencil size={16}/></button><button title="Delete" aria-label={`Delete ${task.title}`} onClick={()=>deleteTask(task)}><Trash2 size={16}/></button></div>
+      <div className="task-actions"><button title="Edit" aria-label={`Edit ${task.title}`} onClick={()=>{feel('action');setModal({task})}}><Pencil size={16}/></button><button title="Delete" aria-label={`Delete ${task.title}`} onClick={()=>deleteTask(task)}><Trash2 size={16}/></button></div>
     </article>
   }
   const groups = view === 'inbox' && sort === 'smart' && !query && priority === 'all'
@@ -339,7 +353,7 @@ function App() {
 
   return <div className="app-shell">
     <aside className={`sidebar ${sidebarOpen?'mobile-open':''}`}>
-      <div className="sidebar-top"><Logo light /><button className="sidebar-close" onClick={()=>setSidebarOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
+      <div className="sidebar-top"><Logo light /><button className="sidebar-close" onClick={()=>{feel('selection');setSidebarOpen(false)}} aria-label="Close menu"><X size={18}/></button></div>
       <div className="workspace-label">WORKSPACE <ChevronDown size={13}/></div>
       <nav className="side-nav" aria-label="Task views">
         {NAV.map(item => <button key={item.id} className={`nav-button ${view===item.id?'selected':''}`} onClick={()=>navigate(item.id)}><item.icon size={18}/><span>{item.label}</span><span className="nav-count">{stats[item.id==='inbox'?'all':item.id] || 0}</span></button>)}
@@ -355,7 +369,7 @@ function App() {
     {sidebarOpen && <div className="mobile-dim" onClick={()=>setSidebarOpen(false)}/>}
 
     <div className="app-content">
-      <header className="topbar"><div className="topbar-leading"><button className="mobile-menu icon-button" onClick={()=>setSidebarOpen(true)} aria-label="Open menu"><LayoutGrid size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <strong>{NAV.find(x=>x.id===view)?.label}</strong></span></div><div className="topbar-actions"><span className="topbar-date"><CalendarDays size={15}/> {currentDate}</span><button className="appearance-trigger theme-button" title="Personalize Daymark" aria-label="Personalize appearance" aria-expanded={appearanceOpen} onClick={()=>setAppearanceOpen(open=>!open)}><Sparkles size={18}/></button><button className="theme-button" title={`Switch to ${theme==='light'?'dark':'light'} mode`} onClick={()=>setTheme(theme==='light'?'dark':'light')}>{theme==='light'?<Moon size={18}/>:<Sun size={18}/>}</button><span className="header-avatar">{session==='demo'?'D':(user?.email||'U')[0].toUpperCase()}</span></div></header>
+      <header className="topbar"><div className="topbar-leading"><button className="mobile-menu icon-button" onClick={()=>{feel('selection');setSidebarOpen(true)}} aria-label="Open menu"><LayoutGrid size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <strong>{NAV.find(x=>x.id===view)?.label}</strong></span></div><div className="topbar-actions"><span className="topbar-date"><CalendarDays size={15}/> {currentDate}</span><button className="appearance-trigger theme-button" title="Personalize Daymark" aria-label="Personalize appearance" aria-expanded={appearanceOpen} onClick={()=>{feel('selection');setAppearanceOpen(open=>!open)}}><Sparkles size={18}/></button><button className="theme-button" title={`Switch to ${theme==='light'?'dark':'light'} mode`} onClick={()=>{feel('selection');setTheme(theme==='light'?'dark':'light')}}>{theme==='light'?<Moon size={18}/>:<Sun size={18}/>}</button><span className="header-avatar">{session==='demo'?'D':(user?.email||'U')[0].toUpperCase()}</span></div></header>
       {appearanceOpen && <div className="appearance-scrim" onMouseDown={event=>{if(event.target===event.currentTarget)setAppearanceOpen(false)}}>
         <section className="appearance-panel" role="dialog" aria-modal="true" aria-labelledby="appearance-title">
           <div className="appearance-header"><div><span className="modal-kicker">YOUR DAY, YOUR WAY</span><h2 id="appearance-title">Make it yours <Sparkles size={20}/></h2><p>A little color makes every day brighter.</p></div><button className="icon-button" aria-label="Close appearance settings" onClick={()=>setAppearanceOpen(false)}><X size={19}/></button></div>
@@ -365,12 +379,19 @@ function App() {
               {id:'lagoon',label:'Lagoon',description:'Deep turquoise'},
               {id:'citrus',label:'Citrus',description:'Sunny amber'},
               {id:'rose',label:'Rose',description:'Warm berry'},
-            ].map(choice=><button key={choice.id} type="button" className={`palette-option ${palette===choice.id?'selected':''}`} aria-pressed={palette===choice.id} onClick={()=>setPalette(choice.id)}>
+            ].map(choice=><button key={choice.id} type="button" className={`palette-option ${palette===choice.id?'selected':''}`} aria-pressed={palette===choice.id} onClick={()=>{setPalette(choice.id);feel('selection')}}>
               <span className={`palette-swatch palette-${choice.id}`}>{palette===choice.id && <Check size={18}/>}</span><span><strong>{choice.label}</strong><small>{choice.description}</small></span>
             </button>)}
           </fieldset>
-          <div className="motion-choice"><div><strong>Gentle motion</strong><p>Keep expressive transitions on, or reduce animation.</p></div><button className={`motion-toggle ${lessMotion?'selected':''}`} aria-label="Reduce animation" aria-pressed={lessMotion} onClick={()=>setLessMotion(value=>!value)}><span/></button></div>
-          <button className="button-primary appearance-done" onClick={()=>setAppearanceOpen(false)}>Looks good <Check size={18}/></button>
+          <div className="motion-choice"><div><strong>Gentle motion</strong><p>Keep expressive transitions on, or reduce animation.</p></div><button className={`motion-toggle ${lessMotion?'selected':''}`} aria-label="Reduce animation" aria-pressed={lessMotion} onClick={()=>{feel('selection');setLessMotion(value=>!value)}}><span/></button></div>
+          <div className="haptic-section">
+            <div className="haptic-section-title"><strong>Touch feedback</strong><p>Give each action its own distinct feel. Physical feedback varies by device.</p></div>
+            <div className="haptic-options" role="group" aria-label="Haptic feedback intensity">
+              {['off','subtle','balanced','strong'].map(level=><button key={level} type="button" className={hapticLevel===level?'selected':''} aria-pressed={hapticLevel===level} onClick={()=>{setHapticLevel(level);feel('selection',level)}}>{level}</button>)}
+            </div>
+            <button type="button" className="haptic-preview" onClick={()=>feel('complete')} disabled={hapticLevel==='off'}>Test feedback <Sparkles size={17}/></button>
+          </div>
+          <button className="button-primary appearance-done" onClick={()=>{feel('action');setAppearanceOpen(false)}}>Looks good <Check size={18}/></button>
         </section>
       </div>}
       <main className="main-area">
