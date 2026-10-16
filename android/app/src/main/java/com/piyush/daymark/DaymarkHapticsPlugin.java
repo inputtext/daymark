@@ -82,7 +82,7 @@ public class DaymarkHapticsPlugin extends Plugin {
         try {
             Vibrator vibrator = (Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
             if (vibrator == null || !vibrator.hasVibrator()) return false;
-            if (vibrator.areEffectsSupported(VibrationEffect.EFFECT_HEAVY_CLICK)
+            if (vibrator.areAllEffectsSupported(VibrationEffect.EFFECT_HEAVY_CLICK)
                     != Vibrator.VIBRATION_EFFECT_SUPPORT_YES) return false;
 
             AudioAttributes attrs = new AudioAttributes.Builder()
