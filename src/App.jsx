@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { insforge, INSFORGE_CONFIGURED } from './lib/insforge.js'
 import { createDemoTasks, dateISO, filterTasks, getDueLabel, getStats, shiftDate } from './lib/tasks.js'
+import { parseSmartTask } from './lib/smartTask.js'
 
 const STORAGE = 'daymark:demo-tasks:v1'
 const THEME = 'daymark:theme'
@@ -135,6 +136,13 @@ function TaskModal({ task, initialDue, onClose, onSave, busy }) {
   const [notes, setNotes] = useState(task?.notes || '')
   const [dueDate, setDueDate] = useState(task?.due_date || initialDue || '')
   const [priority, setPriority] = useState(task?.priority || 'medium')
+  const smart = useMemo(() => task ? null : parseSmartTask(title), [task, title])
+  const applySuggestions = () => {
+    if (!smart?.hasSuggestions) return
+    setTitle(smart.title)
+    if (smart.due_date) setDueDate(smart.due_date)
+    if (smart.priority) setPriority(smart.priority)
+  }
   const titleRef = useRef(null)
   useEffect(() => {
     titleRef.current?.focus()
@@ -152,7 +160,9 @@ function TaskModal({ task, initialDue, onClose, onSave, busy }) {
     <section className="modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
       <div className="modal-head"><div><span className="modal-kicker">YOUR TO-DO LIST</span><h2 id="task-modal-title">{task ? 'Edit task' : 'Create a task'}</h2></div><button className="icon-button" aria-label="Close" onClick={onClose}><X size={21}/></button></div>
       <form onSubmit={save} className="task-form">
-        <label>Task name <input ref={titleRef} className="form-input" maxLength={240} required placeholder="What needs to get done?" value={title} onChange={e=>setTitle(e.target.value)}/></label>
+        <label>Task name <input ref={titleRef} className="form-input" maxLength={240} required placeholder="Try: Review notes tomorrow !high" value={title} onChange={e=>setTitle(e.target.value)}/></label>
+        {!task && <p className="smart-entry-hint"><Sparkles size={14} aria-hidden="true"/> Offline smart entry: today, tomorrow, next week, in 3 days, !high / !medium / !low</p>}
+        {smart?.hasSuggestions && <div className="smart-entry-preview" role="status"><div className="smart-entry-copy"><strong><Sparkles size={14} aria-hidden="true"/> Smart suggestions</strong><span>{[smart.due_date && `Due ${smart.due_date}`, smart.priority && `${smart.priority} priority`].filter(Boolean).join(' · ')}</span></div><button type="button" onClick={applySuggestions} aria-label="Apply suggested date and priority">Apply</button></div>}
         <label>Notes <textarea className="form-input" maxLength={4000} rows={3} placeholder="Add a little context (optional)" value={notes} onChange={e=>setNotes(e.target.value)}/></label>
         <div className="form-cols"><label>Due date <input type="date" className="form-input" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label><label>Priority <select className="form-input" value={priority} onChange={e=>setPriority(e.target.value)}><option value="low">Low priority</option><option value="medium">Medium priority</option><option value="high">High priority</option></select></label></div>
         <div className="modal-actions"><button type="button" className="button-cancel" onClick={onClose}>Cancel</button><button className="button-primary" type="submit" disabled={busy}>{busy ? <LoaderCircle size={17} className="spin"/> : <Plus size={17}/>} {task ? 'Save changes' : 'Add task'}</button></div>
