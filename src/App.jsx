@@ -455,6 +455,7 @@ function App() {
   useEffect(() => {
     const onKey = e => {
       if (session !== 'demo' && session !== 'cloud') return
+      if(session==='cloud'&&biometricLockEnabled(localStorage,user?.id)&&!unlockGranted)return
       if (e.metaKey || e.ctrlKey) {
         if (e.key.toLowerCase() === 'k') { e.preventDefault();searchRef.current?.focus() }
         return
@@ -468,7 +469,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [modal, noteEditor, session, noteScope])
+  }, [modal, noteEditor, session, noteScope, unlockGranted, user?.id])
 
   const startDemo = () => { feel('success');setTasks(getDemo());setSession('demo');setView('inbox') }
   const authenticated = person => {setUser(person);setUnlockGranted(false);setSession('cloud');setView('inbox')}
