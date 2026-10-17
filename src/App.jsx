@@ -531,6 +531,7 @@ function App() {
   return <MotionConfig reducedMotion={lessMotion ? "always" : "user"} transition={SPRING}><div className="app-shell">
     <aside className={`sidebar ${sidebarOpen?'mobile-open':''}`}>
       <div className="sidebar-top"><Logo light /><button className="sidebar-close" onClick={()=>{feel('selection');setSidebarOpen(false)}} aria-label="Close menu"><X size={18}/></button></div>
+      <div className="sidebar-scroll" data-testid="sidebar-scroll">
       <div className="workspace-label">WORKSPACE <ChevronDown size={13}/></div>
       <nav className="side-nav" aria-label="Task views">
         {NAV.map(item => <button key={item.id} className={`nav-button ${view===item.id?'selected':''}`} onClick={()=>navigate(item.id)}><item.icon size={18}/><span>{item.label}</span><span className="nav-count">{item.id==='notes'?notes.length:(stats[item.id==='inbox'?'all':item.id] || 0)}</span></button>)}
@@ -541,7 +542,19 @@ function App() {
       <button className="nav-button quick-access" onClick={()=>{setView('inbox');setPriority('all');setSidebarOpen(false);setModal({due:today})}}><Plus size={18}/> <span>New task</span></button>
       <div className="sidebar-spacer"/>
       <div className="sidebar-tip"><div className="tip-icon"><Sparkles size={18}/></div><h3>Make it happen.</h3><p>Big things start with small, consistent steps.</p><button onClick={()=>opening(today)}>Plan your day <ArrowRight size={15}/></button></div>
-      <div className="sidebar-footer"><button className="profile" onClick={signOut} title="Sign out"><span className="profile-avatar">{session==='demo'?'D':(user?.email||'U')[0].toUpperCase()}</span><span className="profile-text"><strong>{session==='demo'?'Demo workspace':(user?.name || user?.email?.split('@')[0] || 'Your space')}</strong><small>{session==='demo'?'Stored in your browser':'Personal workspace'}</small></span><LogOut size={17}/></button></div>
+      </div>
+      <div className="sidebar-footer">
+        <button className="profile" type="button" onClick={signOut}
+          title={session==='demo'?'Exit demo and open sign in':'Sign out'}
+          aria-label={session==='demo'?'Exit demo and open sign in':'Sign out of Daymark'}>
+          <span className="profile-avatar">{session==='demo'?'D':(user?.email||'U')[0].toUpperCase()}</span>
+          <span className="profile-text">
+            <strong>{session==='demo'?'Demo workspace':(user?.name || user?.email?.split('@')[0] || 'Your space')}</strong>
+            <small>{session==='demo'?'Exit demo · Sign in':'Sign out of account'}</small>
+          </span>
+          <LogOut size={19} aria-hidden="true"/>
+        </button>
+      </div>
     </aside>
     {sidebarOpen && <div className="mobile-dim" onClick={()=>setSidebarOpen(false)}/>}
 

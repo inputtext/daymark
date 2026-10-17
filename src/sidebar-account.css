@@ -1,0 +1,82 @@
+/* v0.7.4: Mobile account access must never be covered by bottom navigation.
+   The scroll region and footer are separate flex children, so even at large
+   text scale and small display heights the exit/sign-out control stays visible. */
+.app-shell .sidebar{
+  min-height:0;
+  overflow:hidden;
+}
+.app-shell .sidebar-scroll{
+  display:flex;
+  flex:1 1 auto;
+  flex-direction:column;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior-y:contain;
+  scrollbar-width:thin;
+  scrollbar-color:#ffffff4a transparent;
+}
+.app-shell .sidebar-scroll .sidebar-spacer{flex:1 0 26px}
+.app-shell .sidebar-footer{
+  flex:0 0 auto;
+  position:relative;
+  z-index:1;
+  background:var(--sidebar);
+  padding:12px 0 3px;
+  border-top:1px solid #ffffff25;
+}
+.app-shell .sidebar-footer .profile{
+  display:flex;
+  align-items:center;
+  min-height:58px;
+  padding:9px 11px;
+  gap:10px;
+  border-radius:20px;
+  background:#ffffff14;
+  cursor:pointer;
+  color:#fff;
+}
+.app-shell .sidebar-footer .profile:hover,
+.app-shell .sidebar-footer .profile:focus-visible{background:#ffffff25}
+.app-shell .sidebar-footer .profile:focus-visible{
+  outline:3px solid var(--ex-tonal);
+  outline-offset:2px;
+}
+.app-shell .sidebar-footer .profile-text small{
+  display:block;
+  color:#f5cddd;
+  font-weight:700;
+  margin-top:4px;
+  font-size:11px;
+}
+.app-shell .sidebar-footer .profile>svg{flex:none}
+@media(max-width:825px){
+  /* Previous sidebar z-index was 30, below .bottom-nav (40) and FAB (45).
+     Explicitly raise it above both and above the dimmed page backdrop. */
+  .app-shell .sidebar{
+    position:fixed;
+    top:var(--dm-inset-top,0px);
+    bottom:0;
+    height:auto;
+    min-height:0;
+    max-height:calc(100dvh - var(--dm-inset-top,0px));
+    z-index:90;
+    padding-bottom:calc(12px + var(--dm-inset-bottom,0px));
+  }
+  .mobile-dim{z-index:60}
+  .app-shell .sidebar-top{
+    flex:0 0 auto;
+    margin-bottom:24px;
+  }
+  .app-shell .sidebar-footer{
+    box-shadow:0 -10px 18px var(--sidebar);
+    padding-top:12px;
+  }
+}
+@media(max-width:825px) and (max-height:640px){
+  .app-shell .sidebar-top{margin-bottom:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  .app-shell .sidebar{transition:none}
+}
+:root[data-less-motion="true"] .app-shell .sidebar{transition:none}
