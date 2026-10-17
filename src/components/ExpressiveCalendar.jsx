@@ -1,9 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Plus, Sparkles, Check, CalendarClock } from 'lucide-react'
-import { addLocalDays, localISO, monthDates, monthStart, parseLocalDay, shiftMonth, sortedDayTasks, tasksOnDay, timeLabel, weekDates, weekStart } from '../lib/calendar.js'
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Sparkles, CalendarClock } from 'lucide-react'
+import { addLocalDays, localISO, monthDates, monthStart, parseLocalDay, shiftMonth, sortedDayTasks, tasksOnDay, weekDates } from '../lib/calendar.js'
 import { SPRING } from '../lib/gestures.js'
-import { ExpressiveDatePicker } from './ExpressivePickers.jsx'
+import CalendarTimelineTask from './CalendarTimelineTask.jsx'
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 const monthLabel=day=>parseLocalDay(day).toLocaleDateString('en-US',{month:'long',year:'numeric'})
 const longLabel=day=>parseLocalDay(day).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})
@@ -13,11 +13,10 @@ const slotFor=time=>!time?'unscheduled':time<'12:00'?'Morning':time<'17:00'?'Aft
 /** Full React/Capacitor calendar, styled after Material 3 Expressive patterns.
  * Date tiles accept mouse drag and pointer drag; all moves have button fallback.
  */
-export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onEdit,onMove,feel,lessMotion=false,busy=false}) {
+export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onEdit,onDelete,onMove,feel,lessMotion=false,busy=false}) {
   const [mode,setMode]=useState('month')
   const [anchor,setAnchor]=useState(monthStart(selected))
   const [dragging,setDragging]=useState(null)
-  const pointer=useRef(null)
   const days=useMemo(()=>mode==='month'?monthDates(anchor):weekDates(selected),[mode,anchor,selected])
   const active=useMemo(()=>sortedDayTasks(tasksOnDay(tasks,selected)),[tasks,selected])
   const totals=useMemo(()=>{
@@ -33,24 +32,6 @@ export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onE
   }
   const select=day=>{if(selected!==day){onSelect(day);feel?.('selection')}setAnchor(monthStart(day))}
   const move=(task,day)=>{if(!day||day===task.due_date)return;void onMove(task,day)}
-  const pointerStart=(event,task)=>{
-    // Mouse uses HTML drag/drop. Touch tracking never starts on a picker or
-    // editing control, so scrolling and date selection remain usable.
-    if(event.pointerType!=='touch'||event.target.closest('button,a,input,select'))return
-    pointer.current={task,x:event.clientX,y:event.clientY,id:event.pointerId,moved:false}
-  }
-  const pointerMove=event=>{
-    const p=pointer.current
-    if(!p||p.id!==event.pointerId)return
-    if(Math.hypot(event.clientX-p.x,event.clientY-p.y)>18){p.moved=true;setDragging(p.task.id)}
-  }
-  const pointerEnd=event=>{
-    const p=pointer.current
-    pointer.current=null;setDragging(null)
-    if(!p||!p.moved)return
-    const el=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-calendar-date]')
-    if(el)move(p.task,el.dataset.calendarDate)
-  }
   const onKeyDate=(event,day)=>{
     if(event.key==='ArrowRight'||event.key==='ArrowLeft'||event.key==='ArrowDown'||event.key==='ArrowUp'){
       event.preventDefault()
@@ -62,7 +43,7 @@ export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onE
   return <div className="daymark-calendar">
     <section className="daymark-calendar-card" aria-label="Calendar planner">
       <div className="daymark-calendar-head">
-        <div><span className="daymark-calendar-eyebrow"><Sparkles size={15}/> YOUR TIME, BEAUTIFULLY ORGANIZED</span><h2>{monthLabel(mode==='month'?anchor:selected)}</h2><p>Pick a date to see your day. Drag tasks to another date.</p></div>
+        <div><span className="daymark-calendar-eyebrow"><Sparkles size={15}/> YOUR TIME, BEAUTIFULLY ORGANIZED</span><h2>{monthLabel(mode==='month'?anchor:selected)}</h2><p>Pick a date to see your day. Swipe a task for actions.</p></div>
         <div className="daymark-calendar-navigation"><button type="button" onClick={()=>{const d=localISO(new Date());select(d)}}>Today</button><button type="button" aria-label="Previous period" onClick={()=>go(-1)}><ChevronLeft size={20}/></button><button type="button" aria-label="Next period" onClick={()=>go(1)}><ChevronRight size={20}/></button></div>
       </div>
       <div className="daymark-calendar-modes" role="group" aria-label="Calendar view">
@@ -85,7 +66,7 @@ export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onE
     </section>
     <section className="daymark-timeline" aria-label="Daily task timeline">
       <div className="daymark-timeline-head"><div><span>DAILY TIMELINE</span><h2>{longLabel(selected)}</h2></div><button className="daymark-calendar-add" type="button" onClick={()=>onCreate(selected)}><Plus size={18}/> Add task</button></div>
-      <p className="daymark-calendar-hint">Drag a task onto a calendar date, or tap its Move date picker to reschedule to any day. Touch feedback respects your settings.</p>
+      <p className="daymark-calendar-hint">Swipe a task left for Edit and Delete. Deletion always asks for confirmation. Use Move date to reschedule, or drag the handle on desktop.</p>
       <AnimatePresence mode="wait">
         <motion.div key={selected} initial={lessMotion?false:{opacity:0,y:12}} animate={{opacity:1,y:0}} exit={lessMotion?{opacity:0}:{opacity:0,y:-8}} transition={lessMotion?{duration:0}:{duration:.22}}>
           {active.length===0&&<div className="daymark-timeline-empty"><CalendarClock size={29}/><h3>Room for something good.</h3><p>Nothing scheduled for this day yet.</p><button type="button" onClick={()=>onCreate(selected)}><Plus size={16}/> Plan a task</button></div>}
@@ -95,15 +76,9 @@ export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onE
               if(!group.length)return null
               return <div className="daymark-timeline-group" key={slot}>
                 <div className="daymark-timeline-slot"><span>{slot==='unscheduled'?'Anytime':slot}</span><small>{timeSlots.find(x=>x.name===slot)?.hours||'No time set'}</small></div>
-                <div className="daymark-timeline-tasks">{group.map(task=><motion.article key={task.id} layout={!lessMotion} className={'daymark-timeline-task'+(task.is_complete?' is-done':'')+(dragging===task.id?' is-dragging':'')} draggable={!busy}
-                  onDragStart={e=>{e.dataTransfer.setData('application/x-daymark-task',String(task.id));e.dataTransfer.effectAllowed='move'}}
-                  onPointerDown={e=>pointerStart(e,task)} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={()=>{pointer.current=null;setDragging(null)}}
-                  ><div className={'daymark-timeline-priority priority-'+task.priority}/><div className="daymark-timeline-copy"><strong>{task.is_complete&&<Check size={14}/>} {task.title}</strong>{task.notes&&<p>{task.notes}</p>}<span>{task.due_time?<><Clock3 size={13}/>{timeLabel(task.due_time)}</>:'Anytime'}</span></div>
-                    <div className="daymark-timeline-actions"><button type="button" onClick={()=>{feel?.('action');onEdit(task)}}>Edit</button>
-                      <ExpressiveDatePicker value={task.due_date||selected} label="Move date" feel={feel} lessMotion={lessMotion}
-                        ariaLabel={'Move '+task.title+' to another date'} onChange={day=>{if(day)move(task,day)}}/>
-                    </div>
-                  </motion.article> )}</div>
+                <div className="daymark-timeline-tasks">{group.map(task=><CalendarTimelineTask key={task.id} task={task} selected={selected}
+                  busy={busy} feel={feel} lessMotion={lessMotion} onEdit={onEdit} onDelete={onDelete} onMove={onMove}
+                  onDesktopDragStart={item=>setDragging(item.id)} onDesktopDragEnd={()=>setDragging(null)}/>)}</div>
               </div>
             })}
           </div>}

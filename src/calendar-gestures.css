@@ -1,0 +1,81 @@
+/* Daymark Calendar: swipe-left reveals explicit Edit/Delete actions.
+ * Gesture math uses Motion for React; no automatic destructive swipes. */
+.daymark-timeline-slide{
+  position:relative;isolation:isolate;overflow:hidden;
+  border-radius:23px;background:var(--ex-tonal);min-width:0;
+}
+.daymark-timeline-slide>.daymark-timeline-task{
+  position:relative;z-index:2;margin:0;width:100%;
+  cursor:grab;touch-action:pan-y;user-select:none;
+  -webkit-user-select:none;overflow:visible
+}
+.daymark-timeline-slide>.daymark-timeline-task:active{cursor:grabbing}
+.daymark-timeline-slide .daymark-timeline-swipe-actions{
+  position:absolute;right:0;top:0;bottom:0;z-index:1;
+  width:110px;display:flex;align-items:center;justify-content:center;gap:5px;
+  padding:6px;pointer-events:none;opacity:0;transition:opacity .16s ease;
+}
+.daymark-timeline-slide.is-revealed .daymark-timeline-swipe-actions{
+  opacity:1;pointer-events:auto
+}
+.daymark-timeline-swipe-actions button{
+  border:0;display:grid;place-items:center;
+  width:47px;height:47px;min-width:47px;border-radius:17px;
+  color:var(--ex-on-tonal);background:var(--ex-tonal);
+  touch-action:manipulation;cursor:pointer
+}
+.daymark-timeline-swipe-actions .daymark-timeline-reveal-delete{
+  background:var(--ex-tertiary);color:var(--ex-tertiary-ink)
+}
+.daymark-timeline-swipe-actions button:focus-visible,
+.daymark-timeline-more:focus-visible,.daymark-timeline-drag-handle:focus-visible,
+.task-modal-delete:focus-visible{
+  outline:3px solid var(--accent);outline-offset:2px
+}
+.daymark-timeline-slide .daymark-timeline-more,
+.daymark-timeline-slide .daymark-timeline-drag-handle{
+  display:grid;place-items:center;flex:none;width:42px;height:44px;
+  border:0;border-radius:15px;background:var(--ex-tonal);color:var(--ex-on-tonal);
+  touch-action:manipulation;cursor:pointer
+}
+.daymark-timeline-slide .daymark-timeline-more:active{transform:scale(.95)}
+.daymark-timeline-slide .daymark-timeline-drag-handle{
+  display:none;cursor:grab;background:var(--field);
+}
+.daymark-timeline-slide .daymark-timeline-drag-handle:active{cursor:grabbing}
+.daymark-timeline-slide .daymark-timeline-actions{min-width:0}
+.task-modal-delete{
+  min-height:44px;padding:10px 14px;border:1px solid var(--ex-tertiary);
+  border-radius:999px;background:var(--ex-tertiary);color:var(--ex-tertiary-ink);
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-size:12px;font-weight:800;white-space:nowrap;cursor:pointer;
+}
+.task-modal-delete:disabled,.daymark-timeline-swipe-actions button:disabled{
+  opacity:.45;cursor:not-allowed
+}
+@media(pointer:fine){
+  .daymark-timeline-slide .daymark-timeline-drag-handle{display:grid}
+}
+@media(max-width:640px){
+  .daymark-timeline-slide>.daymark-timeline-task{flex-wrap:wrap;gap:9px}
+  .daymark-timeline-slide .daymark-timeline-copy{flex:1 1 calc(100% - 25px)}
+  .daymark-timeline-slide .daymark-timeline-actions{
+    width:auto;flex:1 1 170px;min-width:0;align-items:center;justify-content:flex-end;
+    margin-left:auto;flex-direction:row;gap:7px
+  }
+  .daymark-timeline-slide .daymark-timeline-actions>button{min-width:44px}
+  .daymark-timeline-slide .daymark-timeline-more{width:44px;min-width:44px;height:44px}
+  .daymark-timeline-slide .daymark-timeline-actions .calendar-picker-trigger{
+    min-height:44px;width:auto;max-width:166px
+  }
+  .modal-actions{flex-wrap:wrap}
+  .modal-actions .task-modal-delete{margin-right:auto}
+}
+@media(max-width:365px){
+  .daymark-timeline-slide .daymark-timeline-actions .calendar-picker-trigger{max-width:145px}
+  .task-modal-delete{width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+  .daymark-timeline-slide .daymark-timeline-swipe-actions{transition:none}
+}
+:root[data-less-motion="true"] .daymark-timeline-slide .daymark-timeline-swipe-actions{transition:none}

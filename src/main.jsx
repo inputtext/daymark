@@ -13,3 +13,5 @@ import './calendar.css'
 import './notes.css'
 
 import './loading.css'
+
+import './calendar-gestures.css'
