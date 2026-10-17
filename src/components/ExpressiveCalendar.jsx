@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Plus, Sparkles, Check, CalendarClock } from 'lucide-react'
 import { addLocalDays, localISO, monthDates, monthStart, parseLocalDay, shiftMonth, sortedDayTasks, tasksOnDay, timeLabel, weekDates, weekStart } from '../lib/calendar.js'
 import { SPRING } from '../lib/gestures.js'
+import { ExpressiveDatePicker } from './ExpressivePickers.jsx'
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 const monthLabel=day=>parseLocalDay(day).toLocaleDateString('en-US',{month:'long',year:'numeric'})
 const longLabel=day=>parseLocalDay(day).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})
@@ -30,16 +31,18 @@ export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onE
     else {onSelect(next);setAnchor(monthStart(next))}
     feel?.('selection')
   }
-  const select=day=>{onSelect(day);setAnchor(monthStart(day));feel?.('selection')}
+  const select=day=>{if(selected!==day){onSelect(day);feel?.('selection')}setAnchor(monthStart(day))}
   const move=(task,day)=>{if(!day||day===task.due_date)return;void onMove(task,day)}
   const pointerStart=(event,task)=>{
-    if(event.pointerType==='mouse' && event.button!==0)return
+    // Mouse uses HTML drag/drop. Touch tracking never starts on a picker or
+    // editing control, so scrolling and date selection remain usable.
+    if(event.pointerType!=='touch'||event.target.closest('button,a,input,select'))return
     pointer.current={task,x:event.clientX,y:event.clientY,id:event.pointerId,moved:false}
   }
   const pointerMove=event=>{
     const p=pointer.current
     if(!p||p.id!==event.pointerId)return
-    if(Math.hypot(event.clientX-p.x,event.clientY-p.y)>11){p.moved=true;setDragging(p.task.id)}
+    if(Math.hypot(event.clientX-p.x,event.clientY-p.y)>18){p.moved=true;setDragging(p.task.id)}
   }
   const pointerEnd=event=>{
     const p=pointer.current
@@ -63,7 +66,7 @@ export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onE
         <div className="daymark-calendar-navigation"><button type="button" onClick={()=>{const d=localISO(new Date());select(d)}}>Today</button><button type="button" aria-label="Previous period" onClick={()=>go(-1)}><ChevronLeft size={20}/></button><button type="button" aria-label="Next period" onClick={()=>go(1)}><ChevronRight size={20}/></button></div>
       </div>
       <div className="daymark-calendar-modes" role="group" aria-label="Calendar view">
-        {['month','week','day'].map(value=><button key={value} type="button" className={mode===value?'is-selected':''} aria-pressed={mode===value} onClick={()=>{setMode(value);feel?.('selection')}}>{value==='month'?'Month':value==='week'?'Week':'Day'}</button>)}
+        {['month','week','day'].map(value=><button key={value} type="button" className={mode===value?'is-selected':''} aria-pressed={mode===value} onClick={()=>{if(mode!==value){setMode(value);feel?.('selection')}}}>{value==='month'?'Month':value==='week'?'Week':'Day'}</button>)}
       </div>
       {mode!=='day'&&<div className={'daymark-calendar-grid '+(mode==='week'?'is-week':'is-month')} role="group" aria-label={mode==='month'?'Month dates':'Week dates'}>
         {DAYS.map(day=><span key={day} className="daymark-calendar-weekday">{day}</span>)}
@@ -74,13 +77,15 @@ export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onE
           onClick={()=>select(day)} onKeyDown={e=>onKeyDate(e,day)}
           onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-daymark-task'))e.preventDefault()}}
           onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData('application/x-daymark-task');const task=tasks.find(t=>String(t.id)===id);if(task)move(task,day)}}
-        ><span className="daymark-calendar-date-number">{parseLocalDay(day).getDate()}</span>{info&&<span className="daymark-calendar-dots"><i/><span>{info.all}</span></span>}</motion.button>})}
+        >{selected===day&&<motion.span className="daymark-calendar-date-highlight"
+          layoutId={lessMotion?undefined:"daymark-calendar-date-highlight"} transition={SPRING} aria-hidden="true"/>}
+          <span className="daymark-calendar-date-number">{parseLocalDay(day).getDate()}</span>{info&&<span className="daymark-calendar-dots"><i/><span>{info.all}</span></span>}</motion.button>})}
       </div>}
       <div className="daymark-calendar-summary"><span><CalendarDays size={17}/>{longLabel(selected)}</span><strong>{active.length} task{active.length===1?'':'s'}</strong></div>
     </section>
     <section className="daymark-timeline" aria-label="Daily task timeline">
       <div className="daymark-timeline-head"><div><span>DAILY TIMELINE</span><h2>{longLabel(selected)}</h2></div><button className="daymark-calendar-add" type="button" onClick={()=>onCreate(selected)}><Plus size={18}/> Add task</button></div>
-      <p className="daymark-calendar-hint">Drag a task onto a calendar date to reschedule it. You can also use its Move button.</p>
+      <p className="daymark-calendar-hint">Drag a task onto a calendar date, or tap its Move date picker to reschedule to any day. Touch feedback respects your settings.</p>
       <AnimatePresence mode="wait">
         <motion.div key={selected} initial={lessMotion?false:{opacity:0,y:12}} animate={{opacity:1,y:0}} exit={lessMotion?{opacity:0}:{opacity:0,y:-8}} transition={lessMotion?{duration:0}:{duration:.22}}>
           {active.length===0&&<div className="daymark-timeline-empty"><CalendarClock size={29}/><h3>Room for something good.</h3><p>Nothing scheduled for this day yet.</p><button type="button" onClick={()=>onCreate(selected)}><Plus size={16}/> Plan a task</button></div>}
@@ -94,9 +99,10 @@ export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onE
                   onDragStart={e=>{e.dataTransfer.setData('application/x-daymark-task',String(task.id));e.dataTransfer.effectAllowed='move'}}
                   onPointerDown={e=>pointerStart(e,task)} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={()=>{pointer.current=null;setDragging(null)}}
                   ><div className={'daymark-timeline-priority priority-'+task.priority}/><div className="daymark-timeline-copy"><strong>{task.is_complete&&<Check size={14}/>} {task.title}</strong>{task.notes&&<p>{task.notes}</p>}<span>{task.due_time?<><Clock3 size={13}/>{timeLabel(task.due_time)}</>:'Anytime'}</span></div>
-                    <div className="daymark-timeline-actions"><button type="button" onClick={()=>onEdit(task)}>Edit</button><select aria-label={'Move '+task.title+' to another date'} disabled={busy} value="" onChange={e=>{if(e.target.value)move(task,e.target.value)}}>
-                      <option value="">Move…</option>{[-7,-1,1,7].map(n=><option key={n} value={addLocalDays(task.due_date||selected,n)}>{n<0?n+' days': '+'+n+' days'}</option>)}
-                    </select></div>
+                    <div className="daymark-timeline-actions"><button type="button" onClick={()=>{feel?.('action');onEdit(task)}}>Edit</button>
+                      <ExpressiveDatePicker value={task.due_date||selected} label="Move date" feel={feel} lessMotion={lessMotion}
+                        ariaLabel={'Move '+task.title+' to another date'} onChange={day=>{if(day)move(task,day)}}/>
+                    </div>
                   </motion.article> )}</div>
               </div>
             })}

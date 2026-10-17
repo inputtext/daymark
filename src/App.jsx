@@ -143,7 +143,7 @@ function AuthScreen({ onDemo, onAuth, notify }) {
   </div>
 }
 
-function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion }) {
+function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion, feel }) {
   const [title, setTitle] = useState(task?.title || '')
   const [notes, setNotes] = useState(task?.notes || '')
   const [dueDate, setDueDate] = useState(task?.due_date || initialDue || '')
@@ -177,7 +177,7 @@ function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion }) {
         {!task && <p className="smart-entry-hint"><Sparkles size={14} aria-hidden="true"/> Offline smart entry: today, tomorrow, next week, in 3 days, !high / !medium / !low</p>}
         {smart?.hasSuggestions && <div className="smart-entry-preview" role="status"><div className="smart-entry-copy"><strong><Sparkles size={14} aria-hidden="true"/> Smart suggestions</strong><span>{[smart.due_date && `Due ${smart.due_date}`, smart.priority && `${smart.priority} priority`].filter(Boolean).join(' · ')}</span></div><button type="button" onClick={applySuggestions} aria-label="Apply suggested date and priority">Apply</button></div>}
         <label>Notes <textarea className="form-input" maxLength={4000} rows={3} placeholder="Add a little context (optional)" value={notes} onChange={e=>setNotes(e.target.value)}/></label>
-        <div className="form-cols"><div className="calendar-modal-field"><span>Due date</span><ExpressiveDatePicker value={dueDate} onChange={setDueDate} lessMotion={reducedMotion}/></div><div className="calendar-modal-field"><span>Time (optional)</span><ExpressiveTimePicker value={dueTime} onChange={setDueTime} lessMotion={reducedMotion}/></div></div>
+        <div className="form-cols"><div className="calendar-modal-field"><span>Due date</span><ExpressiveDatePicker value={dueDate} onChange={day => {setDueDate(day);if(!day)setDueTime('')}} feel={feel} lessMotion={reducedMotion}/></div><div className="calendar-modal-field"><span>Time (optional)</span><ExpressiveTimePicker value={dueTime} onChange={setDueTime} feel={feel} lessMotion={reducedMotion} disabled={!dueDate}/>{!dueDate&&<small className="calendar-time-help">Choose a date to enable a time.</small>}</div></div>
         <label>Priority <select className="form-input" value={priority} onChange={e=>setPriority(e.target.value)}><option value="low">Low priority</option><option value="medium">Medium priority</option><option value="high">High priority</option></select></label>
         <div className="modal-actions"><button type="button" className="button-cancel" onClick={onClose}>Cancel</button><button className="button-primary" type="submit" disabled={busy}>{busy ? <LoaderCircle size={17} className="spin"/> : <Plus size={17}/>} {task ? 'Save changes' : 'Add task'}</button></div>
       </form>
@@ -484,7 +484,7 @@ function App() {
       </button>)}
     </nav></LayoutGroup>
     <motion.button className="mobile-fab v04-fab" aria-label="Create new task" whileTap={lessMotion?undefined:{scale:.88,rotate:-7}} transition={SPRING} onClick={()=>opening(view==='today'?today:null)}><Plus size={27}/></motion.button>
-    <AnimatePresence>{modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} busy={busy} reducedMotion={lessMotion} onSave={saveTask} onClose={()=>!busy&&setModal(null)}/>}</AnimatePresence>
+    <AnimatePresence>{modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} busy={busy} reducedMotion={lessMotion} feel={feel} onSave={saveTask} onClose={()=>!busy&&setModal(null)}/>}</AnimatePresence>
     <AnimatePresence>{toast && <motion.div key={toast} role="status" className="toast v04-toast" initial={lessMotion?false:{opacity:0,y:16,scale:.94}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:8,scale:.98}} transition={lessMotion?{duration:.05}:SPRING}><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={15}/></button></motion.div>}</AnimatePresence>
   </div></MotionConfig>
 }

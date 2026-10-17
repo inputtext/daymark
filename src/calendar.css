@@ -107,3 +107,82 @@
 
 /* Five navigation destinations in v0.6, including Calendar. */
 @media(max-width:780px){.bottom-nav{grid-template-columns:repeat(5,minmax(0,1fr))}.bottom-nav-icon{min-width:42px!important}}
+
+
+/* v0.6.1 — Material Expressive calendar feel: thumb-friendly hit areas,
+   clearer selected states, smoother shape morphs and keyboard focus rings. */
+.daymark-calendar-date{isolation:isolate;overflow:hidden;touch-action:manipulation}
+.daymark-calendar-date.is-selected{background:transparent;color:var(--ex-on-accent);box-shadow:none}
+.daymark-calendar-date-highlight{
+  position:absolute;inset:0;border-radius:29px 13px 29px 13px;
+  background:var(--accent);box-shadow:0 7px 17px color-mix(in srgb,var(--accent) 23%,transparent);
+  z-index:0;pointer-events:none
+}
+.daymark-calendar-date-number,.daymark-calendar-dots{position:relative;z-index:1}
+.daymark-calendar-date:active:not(.is-selected){background:var(--ex-tonal)}
+.daymark-calendar-date:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.calendar-picker-trigger{
+  transition:background .18s var(--ex-ease),border-color .18s var(--ex-ease),transform .18s var(--ex-ease);
+  touch-action:manipulation;gap:10px
+}
+.calendar-picker-trigger:active:not(:disabled){transform:scale(.98);background:var(--ex-tonal)}
+.calendar-picker-trigger:disabled{opacity:.5;cursor:not-allowed}
+.calendar-picker-trigger>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.calendar-picker-trigger>svg:last-child{flex:none}
+.calendar-time-help{display:block;color:var(--muted);font-size:10px;line-height:1.45;margin-top:3px}
+.calendar-picker-shade{padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));overscroll-behavior:contain}
+.calendar-picker-dialog{overscroll-behavior:contain;outline:none;max-width:100%}
+.calendar-picker-selected{min-height:77px}
+.calendar-picker-selected strong{font-size:clamp(22px,6vw,29px);min-width:0;overflow-wrap:anywhere}
+.calendar-picker-top button,.calendar-picker-selected button,.calendar-picker-month button{width:44px;height:44px;min-width:44px;min-height:44px;touch-action:manipulation}
+.calendar-picker-grid{gap:2px}
+.calendar-picker-day{min-width:0;min-height:40px;position:relative;touch-action:manipulation}
+.calendar-picker-day.is-today:not(.is-picked){outline:1.5px solid var(--accent);outline-offset:-2px;color:var(--accent)}
+.calendar-picker-day.is-picked{border-radius:45% 55% 42% 58%;box-shadow:0 3px 12px color-mix(in srgb,var(--accent) 19%,transparent)}
+.calendar-picker-day:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.calendar-picker-footer{flex-wrap:wrap;gap:4px}
+.calendar-picker-footer button{min-height:44px;min-width:44px;justify-content:center}
+.calendar-picker-footer button:disabled{opacity:.4;cursor:not-allowed}
+.calendar-time-digits>button{min-width:64px;min-height:76px;touch-action:manipulation}
+.calendar-time-period button{min-height:44px}
+.calendar-clock{touch-action:none;user-select:none;-webkit-user-select:none;overflow:visible}
+.calendar-clock button{min-width:44px;min-height:44px;width:44px;height:44px;touch-action:none;transition:background .15s var(--ex-ease),color .15s var(--ex-ease)}
+.calendar-clock button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.calendar-clock-hand{transition:transform .18s var(--ex-ease);pointer-events:none}
+.calendar-time-inputs input{min-height:52px;width:100%;font-size:18px;font-weight:800}
+.daymark-timeline-actions{align-items:stretch;gap:7px;min-width:114px}
+.daymark-timeline-actions>button{min-height:44px}
+.daymark-timeline-actions .calendar-picker-trigger{
+  min-height:44px;max-width:158px;padding:8px 10px;border-color:var(--line);
+  background:var(--ex-tonal);color:var(--ex-on-tonal);font-size:11px
+}
+.daymark-timeline-actions .calendar-picker-trigger>svg:first-child{width:16px;min-width:16px}
+.daymark-timeline-actions .calendar-picker-trigger>svg:last-child{width:13px;min-width:13px}
+.daymark-timeline-task{transition:background .2s var(--ex-ease),border-radius .2s var(--ex-ease)}
+.daymark-timeline-task:focus-within{background:var(--ex-tonal);border-radius:27px}
+@media(max-width:540px){
+  .daymark-calendar-date{min-height:52px}
+  .daymark-calendar-date-highlight{border-radius:18px 9px 18px 9px}
+  .daymark-calendar-grid{gap:3px}
+  .daymark-calendar-card,.daymark-timeline{padding:16px}
+  .daymark-timeline-actions{width:100%;flex-direction:row;justify-content:flex-end;align-items:center}
+  .daymark-timeline-actions .calendar-picker-trigger{width:auto;min-width:145px}
+  .calendar-picker-dialog{border-radius:30px;padding:18px}
+  .calendar-time-digits>button{font-size:34px;min-width:60px;padding:12px 9px}
+  .calendar-time-period{margin-left:2px}
+  .calendar-time-period button{padding:8px 10px}
+}
+@media(max-width:360px){
+  .calendar-picker-dialog{padding:14px}
+  .calendar-picker-grid{gap:0}
+  .calendar-picker-day{font-size:11px}
+  .calendar-time-digits>button{min-width:54px;font-size:31px}
+  .calendar-time-period button{padding:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .calendar-clock-hand,.calendar-clock button,.calendar-picker-trigger,.daymark-timeline-task{transition:none!important}
+}
+:root[data-less-motion="true"] .calendar-clock-hand,
+:root[data-less-motion="true"] .calendar-clock button,
+:root[data-less-motion="true"] .calendar-picker-trigger,
+:root[data-less-motion="true"] .daymark-timeline-task{transition:none!important}

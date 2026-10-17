@@ -47,3 +47,15 @@ export const timeLabel = value => {
 }
 export const tasksOnDay = (tasks, day) => tasks.filter(task=>task.due_date===day)
 export const sortedDayTasks = tasks => [...tasks].sort((a,b)=>(a.due_time||'99:99').localeCompare(b.due_time||'99:99') || (a.title||'').localeCompare(b.title||''))
+
+/** Clock-face pointer selection, starting at 12 and increasing clockwise. */
+export function clockDialValue(clientX, clientY, bounds, unit='hour') {
+  if (!bounds || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return null
+  const centerX=bounds.left+bounds.width/2
+  const centerY=bounds.top+bounds.height/2
+  const dx=clientX-centerX, dy=clientY-centerY
+  if (Math.hypot(dx,dy)<12) return null // Center dot is not a selection.
+  const radians=Math.atan2(dx,-dy)
+  const index=((Math.round(radians/(Math.PI/6))%12)+12)%12
+  return unit==='minute'?index*5:index===0?12:index
+}
