@@ -1,5 +1,15 @@
 # Daymark — InsForge Todo App
 
+## v0.8 preview — cloud Notes + optional biometric lock
+
+Daymark v0.8 is on a **draft feature branch**, not deployed to the production website or InsForge backend. The existing email/password InsForge login and cloud tasks remain; account Notes now have a device-local outbox and optional cloud sync **after** applying `migrations/20261018_create_daymark_notes.sql`. Android users can opt in to a device fingerprint/PIN **app lock**, which is separate from InsForge account sign-in.
+
+- See [v0.8 migration, verification, safe setup and Pixel 9 testing](docs/V0_8_CLOUD_BIOMETRIC_QA.md).
+- Offline Notes edits queue locally; cloud tasks are **readable from the last cache** but task edits still require the internet.
+- Existing signed-in, device-local Notes are imported on first successful sync without deleting local data. **Demo Notes are not automatically copied into a cloud account.**
+- Biometrics protect the app UI, **not** credentials at rest or the InsForge server session; local caches remain unencrypted until a later encrypted-storage milestone.
+
+
 A polished, responsive full-stack todo app powered by **React + Vite + Tailwind CSS 3.4 + InsForge**. Demo mode works without a backend; production mode uses InsForge authentication and per-user PostgreSQL persistence with row-level security.
 
 ## Features

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, CheckCircle2,
-  ChevronDown, Circle, Clock3, Command, Inbox, Keyboard, LayoutGrid, ListFilter,
+  ChevronDown, Circle, Clock3, Command, Fingerprint, Wifi, WifiOff, Inbox, Keyboard, LayoutGrid, ListFilter,
   LoaderCircle, LockKeyhole, LogOut, Mail, Moon, MoreHorizontal, Pencil,
   Plus, Search, ShieldCheck, Sparkles, StickyNote, Sun, Trash2, X,
 } from 'lucide-react'
@@ -10,6 +10,10 @@ import { createDemoTasks, dateISO, filterTasks, getDueLabel, getStats, shiftDate
 import { parseSmartTask } from './lib/smartTask.js'
 import { hapticFeedback, normalizeHapticLevel } from './lib/haptics.js'
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
+import { App as NativeApp } from '@capacitor/app'
+import { Network } from '@capacitor/network'
+import { queueNoteChanges, syncCloudNotes, readNotesOutbox } from './lib/cloudNotes.js'
+import { biometricLockEnabled, setBiometricLockEnabled, checkBiometricAvailability, verifyBiometricLock, isNativeBiometricDevice } from './lib/biometricLock.js'
 import { motion, MotionConfig, AnimatePresence, LayoutGroup } from 'motion/react'
 import GestureTaskRow from './components/GestureTaskRow.jsx'
 import ExpressiveLoading from './components/ExpressiveLoading.jsx'
@@ -25,6 +29,9 @@ import {scheduleTaskReminder, cancelTaskReminder, syncIslandHaptics, isAndroidIs
 import { SPRING } from './lib/gestures.js'
 
 const STORAGE = 'daymark:demo-tasks:v1'
+const cloudTaskCacheKey = userId => userId ? 'daymark:tasks:v08:cache:'+userId : null
+const cachedCloudTasks = userId => {try {const data=JSON.parse(localStorage.getItem(cloudTaskCacheKey(userId))||'[]');return Array.isArray(data)?data:[]}catch{return []}}
+const saveTaskCache = (userId,items) => {try {if(userId)localStorage.setItem(cloudTaskCacheKey(userId),JSON.stringify(items))}catch{/* optional task cache */}}
 const THEME = 'daymark:theme'
 const NAV = [
   { id: 'inbox', label: 'All tasks', icon: LayoutGrid },
@@ -233,6 +240,19 @@ function App() {
   const [loadingTasks, setLoadingTasks] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [toast, setToast] = useState('')
+  const [online,setOnline] = useState(()=>navigator.onLine)
+  const [resumeSignal,setResumeSignal] = useState(0)
+  const [noteSyncSignal,setNoteSyncSignal] = useState(0)
+  const [noteSyncState,setNoteSyncState] = useState('idle')
+  const [noteSyncError,setNoteSyncError] = useState('')
+  const notesSyncPromise=useRef(null)
+  const notesSyncQueued=useRef(false)
+  const activeSyncScope=useRef(null)
+  const authPromptActive=useRef(false)
+  const [unlockGranted,setUnlockGranted]=useState(false)
+  const [lockError,setLockError]=useState('')
+  const [biometricBusy,setBiometricBusy]=useState(false)
+  const [,setLockEpoch]=useState(0)
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME) || 'light')
   const [palette, setPalette] = useState(() => {
     try { return ['iris','lagoon','citrus','rose'].includes(localStorage.getItem('daymark:palette')) ? localStorage.getItem('daymark:palette') : 'iris' }
@@ -253,24 +273,33 @@ function App() {
   const searchRef = useRef(null)
   const today = dateISO()
   const notify = useCallback(message => setToast(message), [])
-  // Device-local notes are isolated by demo workspace or authenticated user ID.
-  // They do not use the public InsForge anon key or require a schema migration.
+  // Preserve existing local Notes as a per-user offline copy.
+  // The outbox uploads explicitly changed notes and soft-delete tombstones.
   const noteScope = notesStorageKey(session, user?.id)
+  activeSyncScope.current=noteScope
   useEffect(() => {
     setNotes(readNotes(localStorage,noteScope))
     setNoteEditor(null)
+    setNoteSyncState('idle')
+    setNoteSyncError('')
   },[noteScope])
   const mutateNotes = useCallback(transform => {
     try {
-      const next = transform(readNotes(localStorage,noteScope))
+      const previous=readNotes(localStorage,noteScope)
+      const next=transform(previous)
       writeNotes(localStorage,noteScope,next)
+      if(session==='cloud') {
+        queueNoteChanges(localStorage,noteScope,previous,next)
+        setNoteSyncState('pending')
+        setNoteSyncSignal(value=>value+1)
+      }
       setNotes(next)
       return true
     } catch(error) {
       notify('Could not save note: '+(error?.message||'Local storage unavailable'))
       return false
     }
-  },[noteScope,notify])
+  },[noteScope,notify,session])
   const openQuickNote = () => {
     setNoteEditor(newDraft(crypto.randomUUID()))
     setSidebarOpen(false)
@@ -338,25 +367,95 @@ function App() {
   }, [])
 
   const refresh = useCallback(async () => {
-    if (!insforge) return
+    if (!insforge || !user?.id || !online) return
     setLoadingTasks(true)
-    let response = await insforge.database.from('tasks')
-      .select('id,user_id,title,notes,due_date,due_time,priority,is_complete,created_at,updated_at')
-      .order('created_at', {ascending:false})
-    if (response.error && /due_time|column.*not.*exist|schema cache/i.test(response.error.message||'')) {
-      cloudTimeSupported.current = false
-      response = await insforge.database.from('tasks')
-        .select('id,user_id,title,notes,due_date,priority,is_complete,created_at,updated_at')
+    try {
+      let response = await insforge.database.from('tasks')
+        .select('id,user_id,title,notes,due_date,due_time,priority,is_complete,created_at,updated_at')
         .order('created_at', {ascending:false})
-    } else if (!response.error) cloudTimeSupported.current = true
-    if (response.error) notify(response.error.message || 'Could not load tasks. Check the database migration.')
-    else setTasks(response.data || [])
-    setLoadingTasks(false)
-  }, [notify])
-  useEffect(() => { if (session === 'cloud' && user) void refresh() }, [session, user, refresh])
+      if (response.error && /due_time|column.*not.*exist|schema cache/i.test(response.error.message||'')) {
+        cloudTimeSupported.current = false
+        response = await insforge.database.from('tasks')
+          .select('id,user_id,title,notes,due_date,priority,is_complete,created_at,updated_at')
+          .order('created_at', {ascending:false})
+      } else if (!response.error) cloudTimeSupported.current = true
+      if(response.error)throw response.error
+      const items=response.data||[]
+      // Do not mix task caches between different signed-in users.
+      if(activeSyncScope.current===notesStorageKey('cloud',user.id)){
+        setTasks(items)
+        saveTaskCache(user.id,items)
+      }
+    } catch(error) {
+      notify(error?.message||'Could not refresh tasks. Showing saved copy.')
+    } finally {setLoadingTasks(false)}
+  }, [notify,user?.id,online])
+  useEffect(()=>{
+    if(session==='cloud'&&user?.id)setTasks(cachedCloudTasks(user.id))
+  },[session,user?.id])
+  useEffect(()=>{if(session==='cloud'&&user?.id&&online)void refresh()},[session,user?.id,online,resumeSignal,refresh])
+
+  const syncNotesNow=useCallback(async()=>{
+    if(session!=='cloud'||!user?.id||!insforge||!online||!noteScope)return
+    if(notesSyncPromise.current){notesSyncQueued.current=true;return}
+    const scope=noteScope
+    setNoteSyncState('syncing')
+    const promise=syncCloudNotes({storage:localStorage,scope,userId:user.id,client:insforge})
+    notesSyncPromise.current=promise
+    try{
+      const result=await promise
+      if(activeSyncScope.current!==scope)return
+      setNotes(previous=>JSON.stringify(previous)===JSON.stringify(result.notes)?previous:result.notes)
+      setNoteSyncState(result.pending?'pending':'synced')
+      setNoteSyncError('')
+    }catch(error){
+      if(activeSyncScope.current===scope){
+        setNoteSyncState('error')
+        setNoteSyncError(error?.message||'Could not sync notes. Local copies are safe.')
+      }
+    }finally{
+      notesSyncPromise.current=null
+      if(notesSyncQueued.current){notesSyncQueued.current=false;setNoteSyncSignal(n=>n+1)}
+    }
+  },[noteScope,session,user?.id,online])
+  useEffect(()=>{
+    if(session!=='cloud'||!online)return
+    const id=setTimeout(()=>void syncNotesNow(),750)
+    return()=>clearTimeout(id)
+  },[session,online,noteSyncSignal,resumeSignal,syncNotesNow])
+
+  useEffect(()=>{
+    let mounted=true
+    const listeners=[]
+    const listen=(promise)=>Promise.resolve(promise).then(handle=>{
+      if(!mounted)void handle.remove()
+      else listeners.push(handle)
+    }).catch(()=>{})
+    void Network.getStatus().then(status=>{if(mounted)setOnline(Boolean(status.connected))})
+      .catch(()=>{if(mounted)setOnline(navigator.onLine)})
+    listen(Network.addListener('networkStatusChange',status=>{
+      setOnline(Boolean(status.connected))
+      if(status.connected)setResumeSignal(n=>n+1)
+    }))
+    listen(NativeApp.addListener('appStateChange',state=>{
+      if(!state.isActive){
+        document.documentElement.dataset.daymarkBackground='true'
+        if(!authPromptActive.current)setUnlockGranted(false)
+      }else{
+        document.documentElement.dataset.daymarkBackground='false'
+        setResumeSignal(n=>n+1)
+      }
+    }))
+    return()=>{
+      mounted=false
+      for(const handle of listeners)void handle.remove()
+      document.documentElement.dataset.daymarkBackground='false'
+    }
+  },[])
   useEffect(() => {
     const onKey = e => {
       if (session !== 'demo' && session !== 'cloud') return
+      if(session==='cloud'&&biometricLockEnabled(localStorage,user?.id)&&!unlockGranted)return
       if (e.metaKey || e.ctrlKey) {
         if (e.key.toLowerCase() === 'k') { e.preventDefault();searchRef.current?.focus() }
         return
@@ -370,20 +469,52 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [modal, noteEditor, session, noteScope])
+  }, [modal, noteEditor, session, noteScope, unlockGranted, user?.id])
 
   const startDemo = () => { feel('success');setTasks(getDemo());setSession('demo');setView('inbox') }
-  const authenticated = person => {setUser(person);setSession('cloud');setView('inbox')}
+  const authenticated = person => {setUser(person);setUnlockGranted(false);setSession('cloud');setView('inbox')}
+  const unlockWithBiometric = async()=>{
+    if(biometricBusy)return
+    authPromptActive.current=true
+    setBiometricBusy(true)
+    setLockError('')
+    try{
+      await verifyBiometricLock()
+      setUnlockGranted(true)
+      feel('success')
+    }catch(error){setLockError(error?.message||'Authentication canceled. Try again.')}
+    finally{authPromptActive.current=false;setBiometricBusy(false)}
+  }
+  const toggleBiometricLock=async()=>{
+    if(session!=='cloud'||!user?.id||biometricBusy)return
+    authPromptActive.current=true
+    setBiometricBusy(true)
+    try{
+      const enabled=biometricLockEnabled(localStorage,user.id)
+      if(!enabled){
+        const availability=await checkBiometricAvailability()
+        if(!availability.isAvailable)throw new Error(availability.reason||'Set up fingerprint unlock in Android Settings')
+      }
+      await verifyBiometricLock()
+      setBiometricLockEnabled(localStorage,user.id,!enabled)
+      setUnlockGranted(true)
+      setLockEpoch(n=>n+1)
+      feel('success')
+      notify(enabled?'App lock disabled':'App lock enabled. Daymark will lock when you leave the app.')
+    }catch(error){notify(error?.message||'Unable to change app lock')}
+    finally{authPromptActive.current=false;setBiometricBusy(false)}
+  }
   const signOut = async () => {
     if (session === 'cloud' && insforge) {
       const {error} = await insforge.auth.signOut()
       if (error) {notify(error.message);return}
     }
-    setUser(null);setTasks([]);setNotes([]);setNoteEditor(null);setSession('guest');setQuery('');setView('inbox')
+    setUnlockGranted(false);setSidebarOpen(false);setUser(null);setTasks([]);setNotes([]);setNoteEditor(null);setSession('guest');setQuery('');setView('inbox')
   }
   const writeDemo = updated => {setTasks(updated);localStorage.setItem(STORAGE, JSON.stringify(updated))}
   const saveTask = async formFields => {
     if (busy) return
+    if(session==='cloud'&&!online){notify('You are offline. Task changes need an internet connection; Notes can be edited offline.');return}
     setBusy(true)
     try {
       const {remind_at_time, ...fields} = formFields
@@ -426,6 +557,7 @@ function App() {
     finally {setBusy(false)}
   }
   const toggleTask = async task => {
+    if(session==='cloud'&&!online){notify('Offline: reconnect before changing cloud tasks.');return}
     const value = !task.is_complete
     if (session === 'demo') {
       writeDemo(tasks.map(t => t.id === task.id ? {...t,is_complete:value,updated_at:new Date().toISOString()} : t))
@@ -443,6 +575,7 @@ function App() {
   }
   const deleteTask = async task => {
     if (busy) return false
+    if(session==='cloud'&&!online){notify('Offline: reconnect before deleting cloud tasks.');return false}
     if (!window.confirm(`Delete “${task.title}”? This can’t be undone.`)) return false
     setBusy(true)
     try {
@@ -477,6 +610,7 @@ function App() {
     }
   }
   const rescheduleTask = async (task, dueDate) => {
+    if(session==='cloud'&&!online){notify('Offline: reconnect before rescheduling cloud tasks.');return}
     try {
       if (session === 'demo') {
         writeDemo(tasks.map(t => t.id === task.id ? {...t,due_date:dueDate,updated_at:new Date().toISOString()} : t))
@@ -511,6 +645,7 @@ function App() {
 
   if (session === 'loading') return <ExpressiveLoading kind="app" fullScreen/>
   if (session === 'guest') return <AuthScreen onDemo={startDemo} onAuth={authenticated} notify={notify}/>
+  if(session==='cloud'&&biometricLockEnabled(localStorage,user?.id)&&!unlockGranted) return <div className="daymark-lock-screen" role="main" aria-label="Daymark app locked"><div className="daymark-lock-card"><div className="daymark-lock-badge"><Fingerprint size={36}/></div><span className="modal-kicker">PRIVATE WORKSPACE</span><h1>Daymark is locked.</h1><p>Confirm your fingerprint or device screen lock to open your workspace.</p><button className="daymark-lock-unlock" type="button" disabled={biometricBusy} onClick={()=>void unlockWithBiometric()}><Fingerprint size={20}/>{biometricBusy?'Checking…':'Unlock Daymark'}</button>{lockError&&<p role="alert" className="daymark-lock-error">{lockError}</p>}<button className="daymark-lock-exit" type="button" disabled={biometricBusy} onClick={()=>void signOut()}>Sign out instead</button></div></div>
 
   const renderTask = (task, index) => {
     const due = getDueLabel(task.due_date, today)
@@ -544,6 +679,13 @@ function App() {
       <div className="sidebar-tip"><div className="tip-icon"><Sparkles size={18}/></div><h3>Make it happen.</h3><p>Big things start with small, consistent steps.</p><button onClick={()=>opening(today)}>Plan your day <ArrowRight size={15}/></button></div>
       </div>
       <div className="sidebar-footer">
+        {session==='cloud'&&isNativeBiometricDevice()&&<button type="button" className="sidebar-lock-toggle"
+          disabled={biometricBusy} onClick={()=>void toggleBiometricLock()}
+          aria-label={biometricLockEnabled(localStorage,user?.id)?'Disable biometric app lock':'Enable biometric app lock'}>
+          <Fingerprint size={18}/>
+          <span>{biometricLockEnabled(localStorage,user?.id)?'App lock enabled':'Enable app lock'}</span>
+          <span className="sidebar-lock-state">{biometricLockEnabled(localStorage,user?.id)?'On':'Off'}</span>
+        </button>}
         <button className="profile" type="button" onClick={signOut}
           title={session==='demo'?'Exit demo and open sign in':'Sign out'}
           aria-label={session==='demo'?'Exit demo and open sign in':'Sign out of Daymark'}>
@@ -559,7 +701,7 @@ function App() {
     {sidebarOpen && <div className="mobile-dim" onClick={()=>setSidebarOpen(false)}/>}
 
     <div className="app-content">
-      <header className="topbar"><div className="topbar-leading"><button className="mobile-menu icon-button" onClick={()=>{feel('selection');setSidebarOpen(true)}} aria-label="Open menu"><LayoutGrid size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <strong>{NAV.find(x=>x.id===view)?.label}</strong></span></div><div className="topbar-actions"><span className="topbar-date"><CalendarDays size={15}/> {currentDate}</span><button className="appearance-trigger theme-button" title="Personalize Daymark" aria-label="Personalize appearance" aria-expanded={appearanceOpen} onClick={()=>{feel('selection');setAppearanceOpen(open=>!open)}}><Sparkles size={18}/></button><button className="theme-button" title={`Switch to ${theme==='light'?'dark':'light'} mode`} onClick={()=>{feel('selection');setTheme(theme==='light'?'dark':'light')}}>{theme==='light'?<Moon size={18}/>:<Sun size={18}/>}</button><span className="header-avatar">{session==='demo'?'D':(user?.email||'U')[0].toUpperCase()}</span></div></header>
+      <header className="topbar"><div className="topbar-leading"><button className="mobile-menu icon-button" onClick={()=>{feel('selection');setSidebarOpen(true)}} aria-label="Open menu"><LayoutGrid size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <strong>{NAV.find(x=>x.id===view)?.label}</strong></span></div><div className="topbar-actions"><span className="topbar-date"><CalendarDays size={15}/> {currentDate}</span><button className="appearance-trigger theme-button" title="Personalize Daymark" aria-label="Personalize appearance" aria-expanded={appearanceOpen} onClick={()=>{feel('selection');setAppearanceOpen(open=>!open)}}><Sparkles size={18}/></button><button className="theme-button" title={`Switch to ${theme==='light'?'dark':'light'} mode`} onClick={()=>{feel('selection');setTheme(theme==='light'?'dark':'light')}}>{theme==='light'?<Moon size={18}/>:<Sun size={18}/>}</button><span className={'daymark-connection-badge'+(online?'':' is-offline')} title={online?'Online · Cloud sync active':'Offline · Notes queue locally'} aria-label={online?'Connected':'Offline'}>{online?<Wifi size={16}/>:<WifiOff size={16}/>}</span><span className="header-avatar">{session==='demo'?'D':(user?.email||'U')[0].toUpperCase()}</span></div></header>
       <AnimatePresence>{appearanceOpen && <motion.div className="appearance-scrim v04-appearance-scrim" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:lessMotion?0:.2}} onMouseDown={event=>{if(event.target===event.currentTarget)setAppearanceOpen(false)}}>
         <motion.section className="appearance-panel v04-appearance-panel" role="dialog" aria-modal="true" aria-labelledby="appearance-title" initial={lessMotion?false:{opacity:0,x:26,y:24,scale:.97}} animate={{opacity:1,x:0,y:0,scale:1}} exit={lessMotion?{opacity:0}:{opacity:0,x:24,y:24,scale:.97}} transition={lessMotion?{duration:0}:SPRING}>
           <div className="appearance-header"><div><span className="modal-kicker">YOUR DAY, YOUR WAY</span><h2 id="appearance-title">Make it yours <Sparkles size={20}/></h2><p>A little color makes every day brighter.</p></div><button className="icon-button" aria-label="Close appearance settings" onClick={()=>setAppearanceOpen(false)}><X size={19}/></button></div>
@@ -593,8 +735,9 @@ function App() {
       </motion.div>}</AnimatePresence>
       <main className="main-area">
         <div className="page-heading"><div><div className="eyebrow page-eyebrow"><span className="eyebrow-line"/> A FRESH PERSPECTIVE</div><h1>{TITLES[view][0]}<span className="heading-period">.</span></h1><p>{TITLES[view][1]}</p></div><button className="button-primary heading-add" onClick={()=>view==='notes'?openQuickNote():opening(view==='today'?today:null)}><Plus size={18}/> {view==='notes'?'Quick note':'New task'}</button></div>
+        {session==='cloud'&&!online&&view!=='notes'&&<p className="daymark-offline-tasks" role="status"><WifiOff size={17}/> Offline · Showing saved cloud tasks. Reconnect to edit tasks or refresh updates.</p>}
         <Suspense fallback={<ExpressiveLoading kind={view==='calendar'?'calendar':view==='notes'?'notes':'tasks'}/>}>
-        {view==='notes' ? <NotesWorkspace notes={notes} onNew={openQuickNote} onOpen={editNote} onPin={pinNote} onDelete={deleteSavedNote} feel={feel} reducedMotion={lessMotion}/> : view==='calendar' ? <ExpressiveCalendar tasks={tasks} selected={selectedCalendarDate} onSelect={setSelectedCalendarDate}
+        {view==='notes' ? <NotesWorkspace notes={notes} cloudMode={session==='cloud'} online={online} syncState={noteSyncState} syncError={noteSyncError} pendingCount={session==='cloud'?Object.keys(readNotesOutbox(localStorage,noteScope)).length:0} onRetry={()=>{setNoteSyncSignal(n=>n+1);setResumeSignal(n=>n+1)}} onNew={openQuickNote} onOpen={editNote} onPin={pinNote} onDelete={deleteSavedNote} feel={feel} reducedMotion={lessMotion}/> : view==='calendar' ? <ExpressiveCalendar tasks={tasks} selected={selectedCalendarDate} onSelect={setSelectedCalendarDate}
           onCreate={day=>setModal({due:day})} onEdit={task=>setModal({task})} onDelete={deleteTask}
           onMove={rescheduleTask} feel={feel} lessMotion={lessMotion} busy={busy}/> : <>
         <div className="hero-row"><div className="hero-card"><div className="hero-copy"><span className="hero-overline"><Sparkles size={15}/> YOUR DAILY MOMENTUM</span><h2>Make room for <em>progress.</em></h2><p>You don’t have to do it all. Just take the next step.</p><button className="hero-link" onClick={()=>navigate('today')}>See today’s tasks <ArrowRight size={16}/></button></div><div className="hero-orbit ring-one"/><div className="hero-orbit ring-two"/><div className="hero-flower">✳</div></div><div className="progress-card"><div className="progress-card-top"><span>YOUR PROGRESS</span><span className="progress-icon"><CheckCheck size={19}/></span></div><div className="progress-value">{progress}<span>%</span></div><p>{stats.completed} of {stats.all} tasks complete</p><div className="progress-track"><motion.span initial={false} animate={{width:`${progress}%`}} transition={lessMotion?{duration:0}:{type:"spring",stiffness:180,damping:30,mass:.8}}/></div><div className="progress-bottom">{progress===100 && stats.all ? 'All caught up — amazing work!' : 'Keep your momentum going'}<ArrowUpRight size={16}/></div></div></div>
@@ -607,7 +750,7 @@ function App() {
         </section>
         </>}
         </Suspense>
-        <footer className="app-footer"><span>Made for the little wins. ✦</span><span>{session==='demo'?'Demo • Saved locally':'Securely powered by InsForge'}</span></footer>
+        <footer className="app-footer"><span>Made for the little wins. ✦</span><span>{session==='demo'?'Demo • Saved locally':online?'Cloud tasks · Notes sync on':'Offline · Cached cloud tasks'}</span></footer>
       </main>
     </div>
     <LayoutGroup id="daymark-bottom-navigation"><nav className="bottom-nav" aria-label="Mobile task navigation">
@@ -619,7 +762,7 @@ function App() {
       </button>)}
     </nav></LayoutGroup>
     <ExpressiveFabMenu onNewTask={()=>opening(view==='today'?today:null)} onQuickNote={openQuickNote} onNotes={()=>navigate('notes')} feel={feel} reducedMotion={lessMotion}/>
-    <AnimatePresence>{noteEditor && <QuickNoteEditor key={noteEditor.id} note={noteEditor} onChange={updateNote} onClose={()=>setNoteEditor(null)} onPin={()=>updateNote({...noteEditor,pinned:!noteEditor.pinned})} feel={feel} reducedMotion={lessMotion}/>}</AnimatePresence>
+    <AnimatePresence>{noteEditor && <QuickNoteEditor key={noteEditor.id} cloudMode={session==='cloud'} note={noteEditor} onChange={updateNote} onClose={()=>setNoteEditor(null)} onPin={()=>updateNote({...noteEditor,pinned:!noteEditor.pinned})} feel={feel} reducedMotion={lessMotion}/>}</AnimatePresence>
     <AnimatePresence>{modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} busy={busy} reducedMotion={lessMotion} feel={feel} onSave={saveTask} onDelete={deleteTask} onClose={()=>!busy&&setModal(null)}/>}</AnimatePresence>
     <AnimatePresence>{toast && <motion.div key={toast} role="status" className="toast v04-toast" initial={lessMotion?false:{opacity:0,y:16,scale:.94}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:8,scale:.98}} transition={lessMotion?{duration:.05}:SPRING}><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={15}/></button></motion.div>}</AnimatePresence>
   </div></MotionConfig>

@@ -11,7 +11,7 @@ test('account footer is outside scrollable sidebar menu and remains actionable',
   const close=app.lastIndexOf('</div>',end)
   assert.ok(start>0&&end>start&&close>start)
   assert.match(app.slice(start,end),/className="sidebar-tip"/)
-  assert.match(app.slice(end,end+650),/onClick=\{signOut\}/)
+  assert.match(app.slice(end,app.indexOf('</aside>',end)),/onClick=\{signOut\}/)
   assert.match(app,/Exit demo · Sign in/)
   assert.match(app,/Sign out of account/)
 })

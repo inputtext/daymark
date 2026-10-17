@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { FileText, Plus, Search, Pin, PinOff, Trash2, PencilLine, Sparkles, StickyNote } from 'lucide-react'
+import { FileText, Plus, Search, Pin, PinOff, Trash2, PencilLine, Sparkles, StickyNote, Cloud, CloudOff, RefreshCw, AlertCircle } from 'lucide-react'
 import { sortedNotes } from '../lib/notes.js'
 import { SPRING } from '../lib/gestures.js'
 
-export default function NotesWorkspace({notes, onNew, onOpen, onPin, onDelete, feel, reducedMotion=false}) {
+export default function NotesWorkspace({notes, onNew, onOpen, onPin, onDelete, onRetry, cloudMode=false, online=true, syncState='idle', syncError='', pendingCount=0, feel, reducedMotion=false}) {
   const [search, setSearch] = useState('')
   const visible = useMemo(() => sortedNotes(notes,search),[notes,search])
   const pinnedCount = notes.filter(n=>n.pinned).length
@@ -13,13 +13,19 @@ export default function NotesWorkspace({notes, onNew, onOpen, onPin, onDelete, f
       <div className="notes-overview-copy">
         <span className="notes-eyebrow"><Sparkles size={14}/> THOUGHTS WORTH KEEPING</span>
         <h2>A place for every little thought.</h2>
-        <p>Capture ideas in seconds. Notes are saved instantly on this device, even when you're offline.</p>
+        <p>Capture ideas instantly, even offline. Signed-in notes sync with InsForge when you're connected.</p>
         <div className="notes-stats"><span><StickyNote size={15}/>{notes.length} notes</span><span><Pin size={15}/>{pinnedCount} pinned</span></div>
       </div>
       <motion.button type="button" className="notes-overview-create" whileTap={reducedMotion?undefined:{scale:.94}}
         onClick={onNew}><Plus size={18}/> Quick note</motion.button>
       <span className="notes-overview-glow" aria-hidden="true">✳</span>
     </header>
+    {cloudMode&&<div className={'notes-cloud-banner'+(!online||syncState==='error'?' needs-attention':'')} role="status">
+      {online ? <Cloud size={19}/> : <CloudOff size={19}/>}
+      <span>{!online?'Offline · Your Notes are saved locally and will sync on reconnect.':syncState==='syncing'?'Syncing Notes with InsForge…':syncState==='error'?'Cloud sync paused · Local Notes preserved.':pendingCount?'Saved locally · '+pendingCount+' change(s) waiting to sync.':'Notes backed up to your InsForge account.'}</span>
+      {(syncState==='error'||pendingCount>0)&&<button type="button" aria-label="Retry Notes sync" title="Retry Notes sync" onClick={onRetry} disabled={!online}><RefreshCw size={18}/></button>}
+      {syncState==='error'&&<small title={syncError}><AlertCircle size={14}/>{syncError}</small>}
+    </div>}
     <div className="notes-toolbar">
       <label className="notes-search"><Search size={19}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search your notes" aria-label="Search notes"/></label>
       <span>{visible.length} showing</span>
@@ -46,6 +52,6 @@ export default function NotesWorkspace({notes, onNew, onOpen, onPin, onDelete, f
         </motion.article>)}
       </AnimatePresence>
     </motion.div> : <div className="notes-empty"><span><PencilLine size={30}/></span><h3>{search?'No matching notes':'Your next idea starts here.'}</h3><p>{search?'Try a different search term.':'Tap Quick note or swipe left on the floating + button to capture a thought instantly.'}</p>{!search&&<button type="button" onClick={onNew}><Plus size={17}/> Write a note</button>}</div>}
-    <p className="notes-local-footnote">Offline-first · Stored locally in this app on this device · No cloud sync yet</p>
+    <p className="notes-local-footnote">{cloudMode?'Offline-first · Local copy + InsForge cloud backup after sync · Do not clear app data while changes are pending':'Demo Notes · Saved only on this device · Sign in for cloud backup'}</p>
   </section>
 }

@@ -6,7 +6,7 @@ import { NOTE_TITLE_LIMIT, NOTE_BODY_LIMIT } from '../lib/notes.js'
 import { SPRING } from '../lib/gestures.js'
 
 /** Small, thumb-reachable quick-capture sheet; keystrokes save immediately. */
-export default function QuickNoteEditor({note,onChange,onClose,onPin,feel,reducedMotion=false}) {
+export default function QuickNoteEditor({note,onChange,onClose,onPin,cloudMode=false,feel,reducedMotion=false}) {
   const bodyRef = useRef(null)
   const sheetRef = useRef(null)
   const closeRef = useRef(onClose)
@@ -42,7 +42,7 @@ export default function QuickNoteEditor({note,onChange,onClose,onPin,feel,reduce
         aria-label="Note content" placeholder="What's on your mind? Start typing…" rows={8}
         onChange={e=>onChange({...note,body:e.target.value})}/>
       <div className="note-editor-foot">
-        <span><Check size={15}/> Saved automatically on this device</span>
+        <span><Check size={15}/> {cloudMode?'Saved locally · Syncs when online':'Saved automatically on this device'}</span>
         <button className="note-editor-done" type="button" onClick={()=>{feel?.('action');onClose()}}>Done <Check size={18}/></button>
       </div>
     </motion.section>

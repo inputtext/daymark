@@ -17,3 +17,5 @@ import './loading.css'
 import './calendar-gestures.css'
 
 import './sidebar-account.css'
+
+import './cloud-v08.css'
