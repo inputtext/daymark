@@ -12,6 +12,8 @@ import { hapticFeedback, normalizeHapticLevel } from './lib/haptics.js'
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
 import { motion, MotionConfig, AnimatePresence, LayoutGroup } from 'motion/react'
 import GestureTaskRow from './components/GestureTaskRow.jsx'
+import IslandSettings from './components/IslandSettings.jsx'
+import {scheduleTaskReminder, cancelTaskReminder} from './lib/island.js'
 import { SPRING } from './lib/gestures.js'
 
 const STORAGE = 'daymark:demo-tasks:v1'
@@ -318,6 +320,7 @@ function App() {
       if (error) {notify(error.message);return}
       await refresh()
     }
+    if (value) void cancelTaskReminder(task.id).catch(() => {})
     feel(value ? 'complete' : 'selection')
     notify(value ? 'Nicely done! Task completed.' : 'Task moved back to your list.')
   }
@@ -329,8 +332,19 @@ function App() {
       if (error) {notify(error.message);return}
       await refresh()
     }
+    void cancelTaskReminder(task.id).catch(() => {})
     feel('warning')
     notify('Task deleted')
+  }
+  const remindTask = async (task, minutes) => {
+    try {
+      await scheduleTaskReminder(task, minutes)
+      feel('success')
+      notify('Reminder scheduled for approximately ' + minutes + ' minutes from now. Android may deliver it later.')
+    } catch (error) {
+      feel('error')
+      notify(error?.message || 'Could not schedule the reminder')
+    }
   }
   const rescheduleTask = async (task, dueDate) => {
     try {
@@ -364,7 +378,7 @@ function App() {
     return <GestureTaskRow key={task.id} task={task} index={index} due={due} overdue={overdue}
       today={today} tomorrow={shiftDate(1)} reducedMotion={lessMotion} feel={feel}
       onToggle={toggleTask} onEdit={t=>{feel('action');setModal({task:t})}}
-      onDelete={deleteTask} onReschedule={rescheduleTask}/>
+      onDelete={deleteTask} onReschedule={rescheduleTask} onRemind={remindTask}/>
   }
   const groups = view === 'inbox' && sort === 'smart' && !query && priority === 'all'
     ? [
@@ -420,6 +434,7 @@ function App() {
               ].map(sample=><button key={sample.kind} type="button" disabled={hapticLevel==='off'} onClick={()=>feel(sample.kind)} aria-label={`Try ${sample.label} feedback`}><span className="haptic-sample-icon"><Sparkles size={14}/></span><span>{sample.label}</span></button>)}
             </div>
           </div>
+          <IslandSettings notify={notify} feel={feel}/>
           <button className="button-primary appearance-done" onClick={()=>{feel('action');setAppearanceOpen(false)}}>Looks good <Check size={18}/></button>
         </motion.section>
       </motion.div>}</AnimatePresence>

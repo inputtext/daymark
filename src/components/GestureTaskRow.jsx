@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, animate, useMotionValue, useReducedMotion } from 'motion/react'
-import { CalendarDays, Check, Pencil, Trash2, MoreHorizontal, CalendarClock, X } from 'lucide-react'
+import { CalendarDays, Check, Pencil, Trash2, MoreHorizontal, CalendarClock, BellRing, X } from 'lucide-react'
 import { decideSwipe, shouldCancelLongPress, LONG_PRESS_MS, SPRING } from '../lib/gestures.js'
 
 /**
@@ -11,7 +11,7 @@ import { decideSwipe, shouldCancelLongPress, LONG_PRESS_MS, SPRING } from '../li
  */
 export default function GestureTaskRow({
   task, due, overdue, today, tomorrow,
-  onToggle, onEdit, onDelete, onReschedule, feel, reducedMotion = false, index = 0,
+  onToggle, onEdit, onDelete, onReschedule, onRemind, feel, reducedMotion = false, index = 0,
 }) {
   const systemReducedMotion = useReducedMotion()
   const quiet = Boolean(reducedMotion || systemReducedMotion)
@@ -56,7 +56,7 @@ export default function GestureTaskRow({
     stopHold()
     const bounds = rowRef.current?.getBoundingClientRect()
     const visibleHeight = window.visualViewport?.height || window.innerHeight
-    setMenuAbove(Boolean(bounds && visibleHeight - bounds.bottom < 330))
+    setMenuAbove(Boolean(bounds && visibleHeight - bounds.bottom < 430))
     setRevealed(false)
     snap(0)
     setMenuOpen(true)
@@ -235,6 +235,8 @@ export default function GestureTaskRow({
         <button type="button" role="menuitem" onClick={() => void run(onEdit)}><Pencil size={17}/>Edit task</button>
         <button type="button" role="menuitem" onClick={() => void run(t => onReschedule(t, today))}><CalendarClock size={17}/>Move to today</button>
         <button type="button" role="menuitem" onClick={() => void run(t => onReschedule(t, tomorrow))}><CalendarDays size={17}/>Move to tomorrow</button>
+        {!task.is_complete && <button type="button" role="menuitem" onClick={() => void run(t => onRemind(t, 10))}><BellRing size={17}/>Remind in 10 minutes</button>}
+        {!task.is_complete && <button type="button" role="menuitem" onClick={() => void run(t => onRemind(t, 60))}><CalendarClock size={17}/>Remind in 1 hour</button>}
         <button type="button" role="menuitem" className="gesture-delete-menu" onClick={() => void run(onDelete)}><Trash2 size={17}/>Delete…</button>
         <button type="button" role="menuitem" className="gesture-close-menu" onClick={closeActions}><X size={15}/>Close menu</button>
       </motion.div>}
