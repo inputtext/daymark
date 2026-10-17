@@ -9,3 +9,5 @@ import './gestures.css'
 import './island.css'
 
 import './calendar.css'
+
+import './notes.css'
