@@ -64,3 +64,21 @@
 }
 :root[data-less-motion="true"] .island-switch,
 :root[data-less-motion="true"] .island-switch>span{transition:none!important}
+
+/* Pixel 9 punch-hole calibration: settings UI, native WindowManager owns placement. */
+.island-calibration{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:20px;background:var(--surface);border:1px solid var(--line)}
+.island-calibration-title strong{font-size:13px;color:var(--ink);font-weight:900}
+.island-calibration-title p{margin:5px 0 0}
+.island-calibration-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.island-calibration button{border:1px solid var(--line);border-radius:12px;padding:10px 8px;background:var(--field);color:var(--ink);font-size:11px;font-weight:800;cursor:pointer}
+.island-calibration button.is-selected,.island-calibration button.island-calibration-save{background:var(--accent);color:var(--ex-on-accent);border-color:var(--accent)}
+.island-calibration button:disabled{opacity:.45;cursor:default}
+.island-calibration-guide{position:relative;height:82px;border-radius:16px;background:#201b2c;overflow:hidden;display:flex;align-items:flex-start;justify-content:center;padding-top:8px}
+.island-calibration-camera{position:absolute;top:7px;left:50%;width:13px;height:13px;border-radius:50%;background:#050507;border:2px solid #423951;transform:translateX(-50%);z-index:2}
+.island-calibration-pill{position:relative;display:grid;place-items:center;max-width:90%;min-height:24px;border-radius:999px;background:#050507;color:#cbb8ff;font-size:9px;font-weight:900;letter-spacing:.08em;transition:transform .12s,width .12s;pointer-events:none}
+.island-calibration-control{display:flex;flex-direction:column;gap:6px}
+.island-calibration-control>span{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px}
+.island-calibration-control strong{color:var(--ink);font-variant-numeric:tabular-nums}
+.island-calibration-control input{width:100%;accent-color:var(--accent);min-height:30px}
+.island-calibration-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(prefers-reduced-motion:reduce){.island-calibration-pill{transition:none}}

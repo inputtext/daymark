@@ -37,6 +37,10 @@ public class DaymarkIslandPlugin extends Plugin {
         state.put("scheduledCount", IslandReminders.scheduledCount(getContext()));
         state.put("hapticLevel", IslandReminders.hapticLevel(getContext()));
         state.put("delivery", "inexact");
+        state.put("placementMode", IslandReminders.placementMode(getContext()));
+        state.put("placementX", IslandReminders.placementX(getContext()));
+        state.put("placementY", IslandReminders.placementY(getContext()));
+        state.put("placementWidth", IslandReminders.placementWidth(getContext()));
         return state;
     }
 
@@ -56,6 +60,23 @@ public class DaymarkIslandPlugin extends Plugin {
             IslandReminders.setHapticLevel(getContext(), call.getString("level", "balanced"));
             call.resolve(status());
         } catch (RuntimeException invalid) { call.reject(invalid.getMessage()); }
+    }
+
+    @PluginMethod public void setPlacement(PluginCall call) {
+        String mode = call.getString("mode");
+        Integer x = call.getInt("x");
+        Integer y = call.getInt("y");
+        Integer width = call.getInt("width");
+        if (mode == null || x == null || y == null || width == null) {
+            call.reject("mode, x, y and width are required");
+            return;
+        }
+        try {
+            IslandReminders.setPlacement(getContext(), mode, x, y, width);
+            call.resolve(status());
+        } catch (IllegalArgumentException invalid) {
+            call.reject(invalid.getMessage());
+        }
     }
 
     @PluginMethod public void requestOverlay(PluginCall call) {

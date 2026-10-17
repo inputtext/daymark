@@ -28,8 +28,9 @@ import android.widget.TextView;
 /**
  * Ephemeral, user-enabled, Material Expressive-inspired island.
  *
- * It does NOT impersonate the status bar or obstruct the camera cutout. It is
- * always a touchable window BELOW Android system bars, auto-closes after 14s,
+ * It does NOT control the system status bar or physical camera cutout. In
+ * camera-aligned mode it requests a full-screen layout, which Android may
+ * restrict; safe mode stays below the status bar. It auto-closes after 14s,
  * has an accessible dismiss button and never requests accessibility access.
  * A brief specialUse FGS keeps the overlay alive while visible; background
  * starts can still be denied on Android 15/16.
@@ -138,15 +139,28 @@ public class DaymarkIslandService extends Service {
         if (windowManager == null) throw new IllegalStateException("WindowManager unavailable");
 
         int maxWidth = getResources().getDisplayMetrics().widthPixels - dp(28);
-        int compactWidth = Math.min(dp(280), maxWidth);
+        int compactWidth = Math.min(dp(IslandReminders.placementWidth(this)), maxWidth);
+        boolean cameraMode = "camera".equals(IslandReminders.placementMode(this));
+        int flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
+        if (cameraMode) {
+            // Best-effort edge-to-edge window coordinates. Android draws its
+            // actual status bar above application overlays, so cutout coverage
+            // cannot be guaranteed by any ordinary third-party application.
+            flags |= WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                    | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
+        }
         params = new WindowManager.LayoutParams(
                 compactWidth, WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-                PixelFormat.TRANSLUCENT);
+                flags, PixelFormat.TRANSLUCENT);
         params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-        params.y = dp(15); // Overlay area starts below the actual system bar.
+        params.x = dp(IslandReminders.placementX(this));
+        params.y = dp(IslandReminders.placementY(this) + (cameraMode ? 0 : 15));
+        if (cameraMode && Build.VERSION.SDK_INT >= 28) {
+            params.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        }
         params.windowAnimations = 0;
 
         root = new LinearLayout(this);
@@ -248,7 +262,7 @@ public class DaymarkIslandService extends Service {
         expandedDetails.setAlpha(0f);
         expandedDetails.animate().alpha(1f).setDuration(210).start();
         final int from = params.width;
-        final int to = Math.min(dp(346),
+        final int to = Math.min(dp(Math.max(346, IslandReminders.placementWidth(this) + 36)),
                 getResources().getDisplayMetrics().widthPixels - dp(28));
         ValueAnimator spring = ValueAnimator.ofInt(from, to);
         spring.setDuration(290);
