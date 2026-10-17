@@ -142,6 +142,17 @@ export default function IslandSettings({ notify, feel }) {
     <div className="island-footnote"><ShieldAlert size={15}/>
       <p><strong>Experimental Android feature.</strong> Scheduled alerts are approximate, not exact alarms. A standard notification is the fallback when Android blocks floating windows. Lock-screen and Do Not Disturb policies still apply. Floating Island defaults to off.</p>
     </div>
+    {supported && <div className="island-diagnostics" aria-label="Local reminder diagnostics">
+      <div className="island-diagnostics-header">
+        <strong>Reminder reliability</strong>
+        <button type="button" disabled={busy} onClick={() => void refresh()}>Refresh status</button>
+      </div>
+      <p><strong>Last reminder:</strong> {status?.lastDelivery ?? 'Not available'}</p>
+      <p><strong>Last island attempt:</strong> {status?.lastOverlay ?? 'Not available'}</p>
+      <p><strong>Last delivery time:</strong> {status?.lastDeliveryAt ? new Date(status.lastDeliveryAt).toLocaleString() : 'Not yet'}</p>
+      <p><strong>Reboot restore:</strong> {status?.lastRestoreAt ? status.lastRestoreCount + ' future reminder(s) re-registered' : 'Not tested yet'}</p>
+      <p className="island-diagnostics-note">Status is stored on this phone only. A posted notification may be silent or hidden by Do Not Disturb.</p>
+    </div>}
     <div className="island-meta"><Sparkles size={13}/> {supported ? (status?.scheduledCount ?? '—') + ' reminder(s) waiting · Local to this device' : 'Preview controls appear in the Android app only'}</div>
   </section>
 }

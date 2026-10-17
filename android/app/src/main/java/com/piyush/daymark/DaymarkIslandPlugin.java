@@ -37,6 +37,11 @@ public class DaymarkIslandPlugin extends Plugin {
         state.put("scheduledCount", IslandReminders.scheduledCount(getContext()));
         state.put("hapticLevel", IslandReminders.hapticLevel(getContext()));
         state.put("delivery", "inexact");
+        state.put("lastDelivery", IslandReminders.lastDelivery(getContext()));
+        state.put("lastOverlay", IslandReminders.lastOverlay(getContext()));
+        state.put("lastDeliveryAt", IslandReminders.lastDeliveryAt(getContext()));
+        state.put("lastRestoreAt", IslandReminders.lastRestoreAt(getContext()));
+        state.put("lastRestoreCount", IslandReminders.lastRestoreCount(getContext()));
         state.put("placementMode", IslandReminders.placementMode(getContext()));
         state.put("placementX", IslandReminders.placementX(getContext()));
         state.put("placementY", IslandReminders.placementY(getContext()));

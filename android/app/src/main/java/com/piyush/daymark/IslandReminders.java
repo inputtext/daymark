@@ -103,14 +103,46 @@ public final class IslandReminders {
         return PendingIntent.getBroadcast(context, notificationId(id), intent, flags | PendingIntent.FLAG_IMMUTABLE);
     }
 
+    static void recordDelivery(Context context, String delivery, String overlay) {
+        prefs(context).edit().putLong("lastDeliveryAt", System.currentTimeMillis())
+                .putString("lastDelivery", delivery)
+                .putString("lastOverlay", overlay).apply();
+    }
+
+    static void recordOverlay(Context context, String overlay) {
+        prefs(context).edit().putString("lastOverlay", overlay).apply();
+    }
+
+    static String lastDelivery(Context context) {
+        return prefs(context).getString("lastDelivery", "No reminders delivered yet");
+    }
+
+    static String lastOverlay(Context context) {
+        return prefs(context).getString("lastOverlay", "No overlay attempts yet");
+    }
+
+    static long lastDeliveryAt(Context context) {
+        return prefs(context).getLong("lastDeliveryAt", 0L);
+    }
+
+    static long lastRestoreAt(Context context) {
+        return prefs(context).getLong("lastRestoreAt", 0L);
+    }
+
+    static int lastRestoreCount(Context context) {
+        return prefs(context).getInt("lastRestoreCount", 0);
+    }
+
     static void schedule(Context context, String id, String title, long at) throws JSONException {
         cleanId(id);
         if (at < System.currentTimeMillis() + 5000L)
             throw new IllegalArgumentException("Schedule a future reminder (at least five seconds ahead)");
         String safeTitle = cleanTitle(title);
         JSONObject item = new JSONObject().put("id", id).put("title", safeTitle).put("at", at);
-        prefs(context).edit().putString(REMINDER_PREFIX + id, item.toString()).apply();
+        // Register the alarm before recording it, so a denied alarm cannot
+        // appear in Daymark as an indefinitely pending reminder.
         placeAlarm(context, id, at);
+        prefs(context).edit().putString(REMINDER_PREFIX + id, item.toString()).apply();
     }
 
     static void placeAlarm(Context context, String id, long at) {
@@ -157,18 +189,23 @@ public final class IslandReminders {
 
     static void restore(Context context) {
         final long now = System.currentTimeMillis();
+        int restored = 0;
         for (Map.Entry<String, ?> entry : prefs(context).getAll().entrySet()) {
             if (!entry.getKey().startsWith(REMINDER_PREFIX)) continue;
             try {
                 JSONObject item = new JSONObject((String) entry.getValue());
                 String id = cleanId(item.getString("id"));
                 long at = item.getLong("at");
-                if (at > now + 5000L) placeAlarm(context, id, at);
-                else removeRecord(context, id); // Stale alarm: avoid triggering after reboot.
+                if (at > now + 5000L) {
+                    placeAlarm(context, id, at);
+                    restored++;
+                } else removeRecord(context, id); // Stale alarm: avoid triggering after reboot.
             } catch (Exception invalid) {
                 prefs(context).edit().remove(entry.getKey()).apply();
             }
         }
+        prefs(context).edit().putLong("lastRestoreAt", now)
+                .putInt("lastRestoreCount", restored).apply();
     }
 
     static void ensureChannels(Context context) {
@@ -220,11 +257,19 @@ public final class IslandReminders {
                 .build();
     }
 
-    static void notifyDue(Context context, String id, String title) {
+    static boolean notifyDue(Context context, String id, String title) {
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(
-                Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
+                Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false;
         NotificationManager manager =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager != null) manager.notify(notificationId(id), buildReminderNotification(context, id, title));
+        if (manager == null || !manager.areNotificationsEnabled()) return false;
+        try {
+            manager.notify(notificationId(id), buildReminderNotification(context, id, title));
+            // Posted does not mean visually presented: DND and channel settings
+            // may suppress heads-up alerts, sound or lock-screen visibility.
+            return true;
+        } catch (SecurityException denied) {
+            return false;
+        }
     }
 }
