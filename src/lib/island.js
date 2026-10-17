@@ -99,3 +99,61 @@ export async function cancelTaskReminder(taskId) {
   if (!isAndroidIslandSupported()) return
   return DaymarkIsland.cancel({id: reminderId(taskId)})
 }
+
+/** Calendar reminders use their own native ID so existing manual 10m/1h
+ * reminders are never overwritten by changing a task's date. */
+export function calendarReminderId(taskId) {
+  const raw = String(taskId ?? '')
+  if (!/^[a-zA-Z0-9:_-]{1,95}$/.test(raw)) throw new Error('A valid Daymark task ID is required')
+  return 'c-' + raw
+}
+
+/** Interpret the calendar's local wall-clock HH:mm, not UTC.
+ * A missing or past time never schedules an immediate surprise notification.
+ */
+export function calendarReminderAt(task, now = Date.now()) {
+  const day = String(task?.due_date ?? '')
+  const time = String(task?.due_time ?? '')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return null
+  const [year, month, date] = day.split('-').map(Number)
+  const [hours, minutes] = time.split(':').map(Number)
+  const due = new Date(year, month-1, date, hours, minutes, 0, 0)
+  // Guard impossible calendar dates and skipped local times at DST transitions.
+  if (due.getFullYear()!==year || due.getMonth()!==month-1 || due.getDate()!==date
+      || due.getHours()!==hours || due.getMinutes()!==minutes) return null
+  const timestamp = due.getTime()
+  return Number.isFinite(timestamp) && timestamp > now + 5000 ? timestamp : null
+}
+
+export async function calendarReminderScheduled(taskId) {
+  if (!isAndroidIslandSupported()) return false
+  const state = await DaymarkIsland.hasReminder({id:calendarReminderId(taskId)})
+  return state?.scheduled === true
+}
+
+export async function cancelCalendarReminder(taskId) {
+  if (!isAndroidIslandSupported()) return
+  return DaymarkIsland.cancel({id:calendarReminderId(taskId)})
+}
+
+export async function syncCalendarReminder(task, shouldSchedule = true, {askPermission=false} = {}) {
+  if (!isAndroidIslandSupported()) return {status:'unsupported'}
+  if (!task?.id) throw new Error('Save the task before scheduling its reminder')
+  const at = !task.is_complete && shouldSchedule ? calendarReminderAt(task) : null
+  if (!at) {
+    await cancelCalendarReminder(task.id)
+    return {status: shouldSchedule && task.due_date && task.due_time ? 'past-or-invalid' : 'canceled'}
+  }
+  // Permission is asked only following an explicit user save action. Calendar
+  // background moves can reschedule previously permitted alarms but never pop
+  // up a permission prompt unexpectedly.
+  let status = await islandStatus()
+  if (!status.notificationsGranted && askPermission) status = await requestIslandNotifications()
+  if (!status.notificationsGranted) return {status:'permission-needed'}
+  await DaymarkIsland.schedule({
+    id:calendarReminderId(task.id),
+    title:cleanReminderTitle(task.title),
+    at,
+  })
+  return {status:'scheduled',at}
+}

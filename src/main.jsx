@@ -11,3 +11,5 @@ import './island.css'
 import './calendar.css'
 
 import './notes.css'
+
+import './loading.css'

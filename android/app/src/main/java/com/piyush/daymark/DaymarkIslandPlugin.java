@@ -152,6 +152,16 @@ public class DaymarkIslandPlugin extends Plugin {
         }
     }
 
+    @PluginMethod public void hasReminder(PluginCall call) {
+        String id = call.getString("id");
+        if (id == null) { call.reject("id is required"); return; }
+        try {
+            JSObject result = new JSObject();
+            result.put("scheduled", IslandReminders.pending(getContext(), IslandReminders.cleanId(id)) != null);
+            call.resolve(result);
+        } catch (RuntimeException invalid) { call.reject(invalid.getMessage()); }
+    }
+
     @PluginMethod public void cancel(PluginCall call) {
         String id = call.getString("id");
         if (id == null) { call.reject("id is required"); return; }

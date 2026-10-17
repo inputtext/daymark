@@ -1,0 +1,62 @@
+/* Material Expressive-inspired shape and progress loading system.
+   Pure CSS transforms preserve 60fps where possible; no indefinite JS timers. */
+.ex-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:17px;padding:35px 21px;min-height:235px;width:100%;border:1px solid var(--line);border-radius:30px;background:var(--surface);color:var(--ink)}
+.ex-loading-full{position:fixed;inset:0;z-index:2000;min-height:100dvh;border:0;border-radius:0;background:var(--page)}
+.ex-loading-compact{min-height:138px;gap:11px;padding:19px 12px}
+.ex-loading-shapes{width:120px;height:74px;display:flex;align-items:center;justify-content:center;gap:11px}
+.ex-loading-compact .ex-loading-shapes{transform:scale(.72);height:54px}
+.ex-shape{width:35px;height:35px;background:var(--accent);will-change:transform,border-radius;display:block}
+.ex-shape-star{clip-path:polygon(50% 0%,60% 19%,79% 6%,78% 28%,100% 29%,83% 47%,99% 67%,76% 70%,70% 95%,51% 80%,29% 100%,26% 75%,3% 74%,18% 52%,0 34%,24% 28%,30% 3%,48% 21%);animation:ex-shape-spin 1.75s cubic-bezier(.2,0,0,1) infinite}
+.ex-shape-exterior{height:57px;width:57px;border-radius:50%;display:grid;place-items:center;background:var(--ex-tonal);animation:ex-orbit-breathe 1.4s ease-in-out infinite}
+.ex-shape-core{width:37px;height:37px;background:var(--ex-on-tonal);border-radius:22% 39% 26% 45%;animation:ex-shape-morph 1.4s cubic-bezier(.2,0,0,1) infinite}
+.ex-shape-soft{border-radius:48% 24% 50% 21%;opacity:.6;width:26px;height:26px;animation:ex-shape-morph 1.65s ease-in-out infinite reverse}
+.ex-loading-copy{text-align:center;display:grid;gap:6px}
+.ex-loading-copy strong{font-size:14px;font-weight:850;letter-spacing:-.2px}
+.ex-loading-copy>span{font-size:11px;color:var(--muted)}
+.ex-loading-progress{display:grid;gap:7px;width:min(240px,86%);margin-top:3px}
+.ex-loading-track{position:relative;height:4px;width:100%;border-radius:999px;overflow:hidden;background:var(--ex-tonal)}
+.ex-loading-fill{position:absolute;left:-35%;height:100%;width:33%;border-radius:999px;background:var(--accent);animation:ex-indeterminate 1.3s cubic-bezier(.15,.7,.2,1) infinite}
+.ex-loading-fill-1{animation-delay:.17s;animation-duration:1.5s;width:38%}
+.ex-loading-fill-2{animation-delay:.32s;animation-duration:1.7s;width:27%}
+.ex-loading-tip{position:absolute;right:0;top:-1px;width:5px;height:6px;background:var(--ex-on-tonal);border-radius:50%;opacity:.5}
+.ex-loading-skeleton{width:min(400px,100%);display:grid;gap:9px;margin-top:11px}
+.ex-loading-skeleton span{display:block;width:100%;height:14px;border-radius:999px;background:linear-gradient(90deg,var(--field) 25%,var(--ex-tonal) 47%,var(--field) 72%);background-size:210% 100%;animation:ex-skeleton-shimmer 1.6s linear infinite}
+.ex-loading-skeleton span:nth-child(2){width:73%}
+.ex-loading-skeleton span:nth-child(3){width:90%}
+@keyframes ex-shape-spin{0%{transform:rotate(-20deg) scale(.85)}50%{transform:rotate(155deg) scale(1.16)}100%{transform:rotate(340deg) scale(.85)}}
+@keyframes ex-orbit-breathe{0%,100%{transform:scale(.86)}50%{transform:scale(1.05)}}
+@keyframes ex-shape-morph{0%,100%{border-radius:22% 39% 26% 45%;transform:rotate(0deg) scale(.84)}50%{border-radius:45% 24% 47% 26%;transform:rotate(95deg) scale(1.1)}}
+@keyframes ex-indeterminate{0%{transform:translateX(-100%) scaleX(.6)}45%{transform:translateX(150%) scaleX(1.28)}100%{transform:translateX(520%) scaleX(.7)}}
+@keyframes ex-skeleton-shimmer{0%{background-position:160% 0}100%{background-position:-160% 0}}
+/* Bold typography follows the user's Google Sans Flex preference. */
+:root{--daymark-font:'Google Sans Flex Variable','Google Sans Flex','DM Sans',system-ui,sans-serif}
+body,button,input,select,textarea{font-family:var(--daymark-font)}
+.app-shell h1,.app-shell h2,.app-shell h3,.brand,.notes-overview h2,.note-editor-title,.calendar-picker-selected strong,.ex-loading-copy strong{font-family:var(--daymark-font);font-optical-sizing:auto;font-synthesis:none}
+.app-shell h1,.app-shell h2,.app-shell h3,.brand{font-weight:800}
+.page-heading h1{font-weight:850;letter-spacing:-1.4px}
+@media(prefers-reduced-motion:reduce){
+  .ex-shape-star,.ex-shape-exterior,.ex-shape-core,.ex-shape-soft,.ex-loading-fill,.ex-loading-skeleton span{animation:none!important}
+  .ex-loading-fill{left:0;width:42%}
+}
+:root[data-less-motion='true'] .ex-shape-star,
+:root[data-less-motion='true'] .ex-shape-exterior,
+:root[data-less-motion='true'] .ex-shape-core,
+:root[data-less-motion='true'] .ex-shape-soft,
+:root[data-less-motion='true'] .ex-loading-fill,
+:root[data-less-motion='true'] .ex-loading-skeleton span{animation:none!important}
+:root[data-less-motion='true'] .ex-loading-fill{left:0;width:42%}
+
+/* Explicit opt-in, OS-native task reminder permission choice. */
+.calendar-native-remind{
+  display:flex!important;align-items:center;gap:13px;
+  min-height:63px;padding:12px 14px;border:1px solid var(--line);
+  background:var(--field);border-radius:20px;cursor:pointer
+}
+.calendar-native-remind input[type=checkbox]{
+  appearance:auto;accent-color:var(--accent);width:20px;height:20px;flex:none;margin:0
+}
+.calendar-native-remind>span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.calendar-native-remind strong{font-size:12px;color:var(--ink);font-weight:850}
+.calendar-native-remind small{font-size:10px;font-weight:500;color:var(--muted);line-height:1.55}
+.calendar-native-remind:has(input:checked){border-color:color-mix(in srgb,var(--accent) 35%,var(--line));background:var(--ex-tonal)}
+.calendar-native-remind:has(input:checked) small,.calendar-native-remind:has(input:checked) strong{color:var(--ex-on-tonal)}

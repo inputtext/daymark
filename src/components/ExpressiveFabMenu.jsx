@@ -5,9 +5,9 @@ import { fabGesture } from '../lib/notes.js'
 
 // Quicker, damped Material Expressive-style motion: a small bounce without
 // feeling laggy. Reduced-motion mode skips spring transforms altogether.
-export const FAB_SPRING = Object.freeze({type:'spring', stiffness:520, damping:33, mass:0.78})
-export const FAB_ITEM_SPRING = Object.freeze({type:'spring', stiffness:490, damping:32, mass:0.8})
-export const FAB_STAGGER_SECONDS = 0.035
+export const FAB_SPRING = Object.freeze({type:'spring', stiffness:450, damping:26, mass:0.9})
+export const FAB_ITEM_SPRING = Object.freeze({type:'spring', stiffness:455, damping:27, mass:0.9})
+export const FAB_STAGGER_SECONDS = 0.045
 
 /** Tap opens the action menu. Swipe left on the button for an instant note;
  * swipe up on the button to expand. Deliberately not a screen-edge gesture.

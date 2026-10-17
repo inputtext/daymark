@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, CheckCircle2,
   ChevronDown, Circle, Clock3, Command, Inbox, Keyboard, LayoutGrid, ListFilter,
@@ -12,15 +12,16 @@ import { hapticFeedback, normalizeHapticLevel } from './lib/haptics.js'
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
 import { motion, MotionConfig, AnimatePresence, LayoutGroup } from 'motion/react'
 import GestureTaskRow from './components/GestureTaskRow.jsx'
-import NotesWorkspace from './components/NotesWorkspace.jsx'
+import ExpressiveLoading from './components/ExpressiveLoading.jsx'
+const NotesWorkspace = lazy(() => import('./components/NotesWorkspace.jsx'))
 import QuickNoteEditor from './components/QuickNoteEditor.jsx'
 import ExpressiveFabMenu from './components/ExpressiveFabMenu.jsx'
 import {notesStorageKey,readNotes,writeNotes,newDraft,saveDraft,togglePinned,deleteNote} from './lib/notes.js'
-import ExpressiveCalendar from './components/ExpressiveCalendar.jsx'
+const ExpressiveCalendar = lazy(() => import('./components/ExpressiveCalendar.jsx'))
 import { ExpressiveDatePicker, ExpressiveTimePicker } from './components/ExpressivePickers.jsx'
 import { localISO } from './lib/calendar.js'
-import IslandSettings from './components/IslandSettings.jsx'
-import {scheduleTaskReminder, cancelTaskReminder, syncIslandHaptics, isAndroidIslandSupported} from './lib/island.js'
+const IslandSettings = lazy(() => import('./components/IslandSettings.jsx'))
+import {scheduleTaskReminder, cancelTaskReminder, syncIslandHaptics, isAndroidIslandSupported, calendarReminderScheduled, cancelCalendarReminder, syncCalendarReminder, calendarReminderAt} from './lib/island.js'
 import { SPRING } from './lib/gestures.js'
 
 const STORAGE = 'daymark:demo-tasks:v1'
@@ -155,6 +156,17 @@ function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion, fee
   const [dueDate, setDueDate] = useState(task?.due_date || initialDue || '')
   const [dueTime, setDueTime] = useState(task?.due_time || '')
   const [priority, setPriority] = useState(task?.priority || 'medium')
+  const [remindAtTime,setRemindAtTime] = useState(!task && isAndroidIslandSupported())
+  const [checkingReminder,setCheckingReminder] = useState(Boolean(task && isAndroidIslandSupported()))
+  useEffect(()=>{
+    if(!task?.id || !isAndroidIslandSupported()) return
+    let alive=true
+    calendarReminderScheduled(task.id)
+      .then(result=>{if(alive)setRemindAtTime(result)})
+      .catch(()=>{if(alive)setRemindAtTime(false)})
+      .finally(()=>{if(alive)setCheckingReminder(false)})
+    return ()=>{alive=false}
+  },[task?.id])
   const smart = useMemo(() => task ? null : parseSmartTask(title), [task, title])
   const applySuggestions = () => {
     if (!smart?.hasSuggestions) return
@@ -173,7 +185,7 @@ function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion, fee
     e.preventDefault()
     const clean = title.trim()
     if (!clean) return
-    onSave({ title: clean, notes: notes.trim(), due_date: dueDate || null, due_time: dueDate && dueTime ? dueTime : null, priority })
+    onSave({ title: clean, notes: notes.trim(), due_date: dueDate || null, due_time: dueDate && dueTime ? dueTime : null, priority, remind_at_time: Boolean(dueDate && dueTime && remindAtTime) })
   }
   return <motion.div className="modal-shade v04-modal-shade" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:reducedMotion?0:.18}} onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
     <motion.section className="modal v04-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title" initial={reducedMotion?false:{opacity:0,y:46,scale:.96}} animate={{opacity:1,y:0,scale:1}} exit={reducedMotion?{opacity:0}:{opacity:0,y:30,scale:.97}} transition={reducedMotion?{duration:0}:{type:"spring",stiffness:430,damping:35,mass:.95}}>
@@ -185,7 +197,13 @@ function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion, fee
         <label>Notes <textarea className="form-input" maxLength={4000} rows={3} placeholder="Add a little context (optional)" value={notes} onChange={e=>setNotes(e.target.value)}/></label>
         <div className="form-cols"><div className="calendar-modal-field"><span>Due date</span><ExpressiveDatePicker value={dueDate} onChange={day => {setDueDate(day);if(!day)setDueTime('')}} feel={feel} lessMotion={reducedMotion}/></div><div className="calendar-modal-field"><span>Time (optional)</span><ExpressiveTimePicker value={dueTime} onChange={setDueTime} feel={feel} lessMotion={reducedMotion} disabled={!dueDate}/>{!dueDate&&<small className="calendar-time-help">Choose a date to enable a time.</small>}</div></div>
         <label>Priority <select className="form-input" value={priority} onChange={e=>setPriority(e.target.value)}><option value="low">Low priority</option><option value="medium">Medium priority</option><option value="high">High priority</option></select></label>
-        <div className="modal-actions"><button type="button" className="button-cancel" onClick={onClose}>Cancel</button><button className="button-primary" type="submit" disabled={busy}>{busy ? <LoaderCircle size={17} className="spin"/> : <Plus size={17}/>} {task ? 'Save changes' : 'Add task'}</button></div>
+        {isAndroidIslandSupported()&&<label className="calendar-native-remind">
+          <input type="checkbox" checked={remindAtTime} disabled={!dueDate||!dueTime||checkingReminder||busy}
+            onChange={e=>{setRemindAtTime(e.target.checked);feel?.('selection')}}/>
+          <span><strong>Remind me at this time</strong>
+          <small>{checkingReminder?'Checking saved reminder…':!dueDate||!dueTime?'Choose a date and time first':'Local Android notification · Approximate delivery · No Island permission needed'}</small></span>
+        </label>}
+        <div className="modal-actions"><button type="button" className="button-cancel" onClick={onClose}>Cancel</button><button className="button-primary" type="submit" disabled={busy||checkingReminder}>{busy ? <LoaderCircle size={17} className="spin"/> : <Plus size={17}/>} {task ? 'Save changes' : 'Add task'}</button></div>
       </form>
     </motion.section>
   </motion.div>
@@ -357,30 +375,46 @@ function App() {
     setUser(null);setTasks([]);setNotes([]);setNoteEditor(null);setSession('guest');setQuery('');setView('inbox')
   }
   const writeDemo = updated => {setTasks(updated);localStorage.setItem(STORAGE, JSON.stringify(updated))}
-  const saveTask = async fields => {
+  const saveTask = async formFields => {
     if (busy) return
     setBusy(true)
     try {
+      const {remind_at_time, ...fields} = formFields
+      const taskId = modal?.task?.id || crypto.randomUUID()
+      const savedTask = {...modal?.task,...fields,id:taskId,is_complete:modal?.task?.is_complete||false}
       if (session === 'demo') {
         if (modal?.task) {
-          writeDemo(tasks.map(task => task.id === modal.task.id ? {...task,...fields,updated_at:new Date().toISOString()} : task))
+          writeDemo(tasks.map(task=>task.id===taskId?{...task,...fields,updated_at:new Date().toISOString()}:task))
         } else {
           const now = new Date().toISOString()
-          writeDemo([{...fields,id:crypto.randomUUID(),is_complete:false,created_at:now,updated_at:now}, ...tasks])
+          writeDemo([{...fields,id:taskId,is_complete:false,created_at:now,updated_at:now},...tasks])
         }
       } else {
         if (!cloudTimeSupported.current && fields.due_time) throw new Error('To save task times in your cloud account, apply migrations/20261017_add_due_time.sql in InsForge first.')
         const cloudFields = cloudTimeSupported.current ? fields : Object.fromEntries(Object.entries(fields).filter(([key])=>key!=='due_time'))
         const req = modal?.task
-          ? insforge.database.from('tasks').update(cloudFields).eq('id',modal.task.id)
-          : insforge.database.from('tasks').insert([cloudFields])
+          ? insforge.database.from('tasks').update(cloudFields).eq('id',taskId)
+          : insforge.database.from('tasks').insert([{...cloudFields,id:taskId}])
         const {error} = await req
         if (error) throw error
         await refresh()
       }
+      let reminderNote = ''
+      // Saving a task is never dependent on Android granting a notification.
+      if (isAndroidIslandSupported()) {
+        try {
+          const result=await syncCalendarReminder(savedTask,remind_at_time,{askPermission:Boolean(remind_at_time)})
+          if(result.status==='scheduled') reminderNote=' · Android reminder scheduled (approximate)'
+          else if(result.status==='permission-needed') reminderNote=' · Allow notifications in Personalize to enable reminders'
+          else if(result.status==='past-or-invalid') reminderNote=' · Choose a future time to receive a reminder'
+          else if(remind_at_time) reminderNote=' · Reminder unavailable'
+        } catch(error) {
+          reminderNote=' · Reminder was not scheduled: '+(error?.message||'Android error')
+        }
+      }
       setModal(null)
       feel('success')
-      notify(modal?.task ? 'Task updated successfully' : 'A new task was added')
+      notify((modal?.task?'Task updated':'Task added')+reminderNote)
     } catch (e) {feel('error');notify(`Could not save task: ${e.message}`)}
     finally {setBusy(false)}
   }
@@ -393,7 +427,10 @@ function App() {
       if (error) {notify(error.message);return}
       await refresh()
     }
-    if (value) void cancelTaskReminder(task.id).catch(() => {})
+    if (value) {
+      void cancelTaskReminder(task.id).catch(() => {})
+      void cancelCalendarReminder(task.id).catch(() => {})
+    }
     feel(value ? 'complete' : 'selection')
     notify(value ? 'Nicely done! Task completed.' : 'Task moved back to your list.')
   }
@@ -406,6 +443,7 @@ function App() {
       await refresh()
     }
     void cancelTaskReminder(task.id).catch(() => {})
+    void cancelCalendarReminder(task.id).catch(() => {})
     feel('warning')
     notify('Task deleted')
   }
@@ -428,8 +466,18 @@ function App() {
         if (error) throw error
         await refresh()
       }
+      let info=''
+      if(isAndroidIslandSupported()){
+        try {
+          const wasScheduled = await calendarReminderScheduled(task.id)
+          if(wasScheduled){
+            const result=await syncCalendarReminder({...task,due_date:dueDate},true)
+            info=result.status==='scheduled'?' · Reminder moved':result.status==='past-or-invalid'?' · Past reminder cleared':' · Check notification permission'
+          }
+        }catch {info=' · Check your reminder in Personalize'}
+      }
       feel('success')
-      notify('Task moved to ' + new Date(dueDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}))
+      notify('Task moved to '+new Date(dueDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+info)
     } catch (error) {
       feel('error')
       notify('Could not reschedule task: ' + error.message)
@@ -442,7 +490,7 @@ function App() {
   const opening = (due) => {feel('action');setModal({due})}
   const currentDate = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})
 
-  if (session === 'loading') return <div className="splash"><Logo /><LoaderCircle size={28} className="spin"/></div>
+  if (session === 'loading') return <ExpressiveLoading kind="app" fullScreen/>
   if (session === 'guest') return <AuthScreen onDemo={startDemo} onAuth={authenticated} notify={notify}/>
 
   const renderTask = (task, index) => {
@@ -507,12 +555,13 @@ function App() {
               ].map(sample=><button key={sample.kind} type="button" disabled={hapticLevel==='off'} onClick={()=>feel(sample.kind)} aria-label={`Try ${sample.label} feedback`}><span className="haptic-sample-icon"><Sparkles size={14}/></span><span>{sample.label}</span></button>)}
             </div>
           </div>
-          <IslandSettings notify={notify} feel={feel}/>
+          <Suspense fallback={<ExpressiveLoading kind="settings" compact/>}><IslandSettings notify={notify} feel={feel}/></Suspense>
           <button className="button-primary appearance-done" onClick={()=>{feel('action');setAppearanceOpen(false)}}>Looks good <Check size={18}/></button>
         </motion.section>
       </motion.div>}</AnimatePresence>
       <main className="main-area">
         <div className="page-heading"><div><div className="eyebrow page-eyebrow"><span className="eyebrow-line"/> A FRESH PERSPECTIVE</div><h1>{TITLES[view][0]}<span className="heading-period">.</span></h1><p>{TITLES[view][1]}</p></div><button className="button-primary heading-add" onClick={()=>view==='notes'?openQuickNote():opening(view==='today'?today:null)}><Plus size={18}/> {view==='notes'?'Quick note':'New task'}</button></div>
+        <Suspense fallback={<ExpressiveLoading kind={view==='calendar'?'calendar':view==='notes'?'notes':'tasks'}/>}>
         {view==='notes' ? <NotesWorkspace notes={notes} onNew={openQuickNote} onOpen={editNote} onPin={pinNote} onDelete={deleteSavedNote} feel={feel} reducedMotion={lessMotion}/> : view==='calendar' ? <ExpressiveCalendar tasks={tasks} selected={selectedCalendarDate} onSelect={setSelectedCalendarDate}
           onCreate={day=>setModal({due:day})} onEdit={task=>setModal({task})}
           onMove={rescheduleTask} feel={feel} lessMotion={lessMotion} busy={busy}/> : <>
@@ -521,10 +570,11 @@ function App() {
         <section className="task-panel"><div className="task-panel-top"><div><h2>{view==='inbox'?'Your to-dos':view==='today'?'Your focus list':view==='upcoming'?'Coming up':'Completed tasks'} <span className="task-count">{visible.length}</span></h2><p>A little organization goes a long way.</p></div><div className="task-panel-tools"><button className="text-icon-button" onClick={()=>{setView('inbox');setPriority('all');setQuery('')}}><ListFilter size={16}/> Reset filters</button></div></div>
           <p className="v04-hint"><Sparkles size={14}/> Swipe right to complete · Swipe left for actions · Hold for more</p>
           <div className="task-filters"><div className="search-box"><Search size={18}/><input ref={searchRef} placeholder="Search your tasks..." aria-label="Search tasks" value={query} onChange={e=>setQuery(e.target.value)}/><kbd>⌘ K</kbd></div><div className="filter-selects"><select aria-label="Filter priority" value={priority} onChange={e=>setPriority(e.target.value)}><option value="all">All priorities</option><option value="high">High priority</option><option value="medium">Medium priority</option><option value="low">Low priority</option></select><select aria-label="Sort tasks" value={sort} onChange={e=>setSort(e.target.value)}><option value="smart">Smart sort</option><option value="due">Due date</option><option value="priority">Priority</option></select></div></div>
-          {loadingTasks ? <div className="empty-state"><LoaderCircle size={29} className="spin"/><h3>Getting your tasks…</h3></div> : visible.length ? <LayoutGroup id="daymark-task-list"><div className="task-list">{groups.map(group=><motion.div layout={lessMotion ? false : "position"} className="task-group" key={group.name}><div className="task-group-title"><span>{group.name}</span><span>{group.items.length}</span></div><AnimatePresence initial={false}>{group.items.map(renderTask)}</AnimatePresence></motion.div>)}</div></LayoutGroup> : <div className="empty-state"><div className="empty-illustration"><CheckCheck size={28}/></div><h3>{query || priority!=='all'?'No matching tasks':'A little space to breathe.'}</h3><p>{query || priority!=='all'?'Try a different search or filter.':'No tasks in this view yet. Add one and get moving.'}</p><button className="button-primary" onClick={()=>opening(view==='today'?today:null)}><Plus size={17}/> Add a task</button></div>}
+          {loadingTasks ? <ExpressiveLoading kind="tasks"/> : visible.length ? <LayoutGroup id="daymark-task-list"><div className="task-list">{groups.map(group=><motion.div layout={lessMotion ? false : "position"} className="task-group" key={group.name}><div className="task-group-title"><span>{group.name}</span><span>{group.items.length}</span></div><AnimatePresence initial={false}>{group.items.map(renderTask)}</AnimatePresence></motion.div>)}</div></LayoutGroup> : <div className="empty-state"><div className="empty-illustration"><CheckCheck size={28}/></div><h3>{query || priority!=='all'?'No matching tasks':'A little space to breathe.'}</h3><p>{query || priority!=='all'?'Try a different search or filter.':'No tasks in this view yet. Add one and get moving.'}</p><button className="button-primary" onClick={()=>opening(view==='today'?today:null)}><Plus size={17}/> Add a task</button></div>}
           <div className="task-panel-bottom"><div><Keyboard size={16}/> Press <kbd>N</kbd> to create a task · <kbd>/</kbd> to search</div><span>{stats.active} left to do</span></div>
         </section>
         </>}
+        </Suspense>
         <footer className="app-footer"><span>Made for the little wins. ✦</span><span>{session==='demo'?'Demo • Saved locally':'Securely powered by InsForge'}</span></footer>
       </main>
     </div>
