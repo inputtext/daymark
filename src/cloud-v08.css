@@ -1,0 +1,53 @@
+/* v0.8: cloud sync visibility and opt-in Android app lock */
+.sidebar-lock-toggle{
+  display:flex;align-items:center;gap:9px;min-height:48px;width:100%;
+  padding:9px 11px;margin-bottom:8px;border:1px solid #ffffff20;
+  border-radius:18px;background:#ffffff12;color:#fff;
+  text-align:left;font-size:12px;font-weight:750;cursor:pointer;
+}
+.sidebar-lock-toggle:hover{background:#ffffff25}
+.sidebar-lock-toggle:disabled{opacity:.6}
+.sidebar-lock-toggle>span:nth-of-type(1){flex:1}
+.sidebar-lock-state{padding:4px 8px;border-radius:999px;background:#ffffff20}
+.sidebar-lock-toggle:focus-visible{outline:3px solid var(--ex-tonal);outline-offset:2px}
+.notes-cloud-banner{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:14px 15px;background:var(--ex-tonal);color:var(--ex-on-tonal);
+  border:1px solid var(--line);border-radius:18px;
+  font-size:12px;font-weight:750;margin:15px 0
+}
+.notes-cloud-banner>span{flex:1;min-width:180px}
+.notes-cloud-banner button{
+  width:44px;height:44px;display:grid;place-items:center;
+  border:0;border-radius:14px;background:var(--surface);
+  color:var(--ink);cursor:pointer
+}
+.notes-cloud-banner button:disabled{opacity:.4}
+.notes-cloud-banner.needs-attention{border-color:var(--accent)}
+.notes-cloud-banner small{
+  display:flex;align-items:center;gap:5px;width:100%;
+  color:var(--muted);font-weight:500;overflow-wrap:anywhere;
+}
+.daymark-lock-screen{
+  position:fixed;inset:0;z-index:1000;display:grid;place-items:center;
+  overflow:auto;padding:max(24px,env(safe-area-inset-top,0px)) 22px max(24px,env(safe-area-inset-bottom,0px));
+  background:var(--page,#f5f3fa);color:var(--ink,#252139);
+}
+.daymark-lock-card{
+  width:min(440px,100%);padding:36px 28px;display:grid;justify-items:center;
+  text-align:center;background:var(--surface,#fff);box-shadow:var(--ex-pop-shadow,0 12px 44px #1112);
+  border:1px solid var(--line,#ddd);border-radius:42px;
+}
+.daymark-lock-badge{width:88px;height:88px;border-radius:32px;background:var(--ex-tonal,#ead7ef);color:var(--ex-on-tonal,#672e4a);display:grid;place-items:center;margin-bottom:24px}
+.daymark-lock-card h1{font-size:clamp(25px,7vw,35px);margin:10px 0;color:var(--ink)}
+.daymark-lock-card p{font-size:14px;line-height:1.6;color:var(--muted);max-width:310px}
+.daymark-lock-unlock{width:100%;min-height:56px;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:21px;border:0;border-radius:999px;background:var(--accent,#843b59);color:var(--ex-on-accent,#fff);font-weight:850;font-size:14px}
+.daymark-lock-exit{margin-top:10px;min-height:48px;border:0;background:transparent;color:var(--ink);padding:10px 20px;font-weight:750}
+.daymark-lock-unlock:disabled,.daymark-lock-exit:disabled{opacity:.6}
+.daymark-lock-error{color:#b3261e!important;font-weight:700;font-size:12px!important}
+:root[data-daymark-background='true'] #root{filter:blur(35px);pointer-events:none}
+@media(prefers-reduced-motion:reduce){.daymark-lock-card,.notes-cloud-banner{transition:none}}
+
+.daymark-connection-badge{display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;background:var(--ex-tonal);color:var(--ex-on-tonal)}
+.daymark-connection-badge.is-offline{background:var(--ex-tertiary);color:var(--ex-tertiary-ink)}
+.daymark-offline-tasks{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:var(--ex-tonal);color:var(--ex-on-tonal);padding:12px 16px;border-radius:18px;font-size:12px;font-weight:750;margin-bottom:16px}
