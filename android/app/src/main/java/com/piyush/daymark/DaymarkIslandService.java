@@ -127,7 +127,7 @@ public class DaymarkIslandService extends Service {
         button.setClickable(true);
         button.setContentDescription(text);
         button.setOnClickListener(view -> {
-            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+            touchFeedback(view, false);
             click.run();
         });
         return button;
@@ -223,10 +223,27 @@ public class DaymarkIslandService extends Service {
         handler.postDelayed(dismissLater, TIMEOUT_MS);
     }
 
+    private void touchFeedback(View view, boolean expanding) {
+        String level = IslandReminders.hapticLevel(this);
+        if ("off".equals(level)) return;
+        int effect;
+        if ("subtle".equals(level)) {
+            effect = Build.VERSION.SDK_INT >= 34
+                    ? HapticFeedbackConstants.SEGMENT_FREQUENT_TICK
+                    : HapticFeedbackConstants.CLOCK_TICK;
+        } else {
+            effect = expanding || "strong".equals(level)
+                    ? HapticFeedbackConstants.CONTEXT_CLICK
+                    : HapticFeedbackConstants.VIRTUAL_KEY;
+        }
+        // This honors Android's global touch-feedback setting. No waveform.
+        view.performHapticFeedback(effect);
+    }
+
     private void expand() {
         if (expanded || root == null || windowManager == null) return;
         expanded = true;
-        root.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
+        touchFeedback(root, true);
         expandedDetails.setVisibility(View.VISIBLE);
         expandedDetails.setAlpha(0f);
         expandedDetails.animate().alpha(1f).setDuration(210).start();

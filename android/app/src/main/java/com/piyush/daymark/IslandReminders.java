@@ -45,6 +45,17 @@ public final class IslandReminders {
         if (!value) context.stopService(new Intent(context, DaymarkIslandService.class));
     }
 
+    static void setHapticLevel(Context context, String level) {
+        if (!"off".equals(level) && !"subtle".equals(level)
+                && !"balanced".equals(level) && !"strong".equals(level))
+            throw new IllegalArgumentException("Unknown Daymark haptic level");
+        prefs(context).edit().putString("hapticLevel", level).apply();
+    }
+
+    static String hapticLevel(Context context) {
+        return prefs(context).getString("hapticLevel", "balanced");
+    }
+
     static String cleanTitle(String title) {
         String normalized = title == null ? "" : title.trim();
         if (normalized.isEmpty()) normalized = "Your Daymark reminder";

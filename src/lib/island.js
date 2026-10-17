@@ -41,6 +41,10 @@ export async function setIslandEnabled(enabled) {
   if (!isAndroidIslandSupported()) throw new Error('Floating Island is available in the Android app only')
   return DaymarkIsland.setEnabled({enabled: Boolean(enabled)})
 }
+export async function syncIslandHaptics(level) {
+  if (!isAndroidIslandSupported()) return
+  return DaymarkIsland.syncHaptics({level})
+}
 export async function requestIslandOverlay() {
   if (!isAndroidIslandSupported()) throw new Error('Overlay permission is Android-only')
   return DaymarkIsland.requestOverlay()

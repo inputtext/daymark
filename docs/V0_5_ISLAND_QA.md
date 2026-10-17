@@ -17,6 +17,7 @@
 - \`FOREGROUND_SERVICE\`, \`FOREGROUND_SERVICE_SPECIAL_USE\`: only for the brief floating island while visible, with required service subtype declared in the manifest. **Google Play distribution requires special-use declaration review** and is not guaranteed approval.
 - \`RECEIVE_BOOT_COMPLETED\`: re-registers future scheduled alarms after restart. Forced-stop semantics and OS energy-saving policies still apply.
 - **No** Accessibility Service, notification-reading permission, permission bypass, full-screen intent, background polling service, exact alarms, or always-on overlay.
+- Daymark's Off/Subtle/Balanced/Strong haptic setting is mirrored into Android private preferences so native island tap feedback respects both that setting and the global Android touch-feedback setting.
 - Native preview from a foreground app should be the first test. Android 15+ may reject background foreground-service starts; a normal notification is intentionally always used as fallback when authorized. See https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start and https://developer.android.com/develop/background-work/services/fgs/service-types
 
 ## Test on physical Pixel 9

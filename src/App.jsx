@@ -13,7 +13,7 @@ import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
 import { motion, MotionConfig, AnimatePresence, LayoutGroup } from 'motion/react'
 import GestureTaskRow from './components/GestureTaskRow.jsx'
 import IslandSettings from './components/IslandSettings.jsx'
-import {scheduleTaskReminder, cancelTaskReminder} from './lib/island.js'
+import {scheduleTaskReminder, cancelTaskReminder, syncIslandHaptics} from './lib/island.js'
 import { SPRING } from './lib/gestures.js'
 
 const STORAGE = 'daymark:demo-tasks:v1'
@@ -227,6 +227,9 @@ function App() {
   }, [palette])
   useEffect(() => {
     try { localStorage.setItem('daymark:haptics', hapticLevel) } catch { /* storage disabled */ }
+    // The island can run after the WebView closes. Keep its native setting in
+    // sync so Daymark's Off/Subtle/Balanced/Strong also apply to overlay taps.
+    void syncIslandHaptics(hapticLevel).catch(() => {})
   }, [hapticLevel])
   useEffect(() => {
     document.documentElement.dataset.lessMotion = String(lessMotion)

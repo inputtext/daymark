@@ -35,6 +35,7 @@ public class DaymarkIslandPlugin extends Plugin {
                 || getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                     == PackageManager.PERMISSION_GRANTED);
         state.put("scheduledCount", IslandReminders.scheduledCount(getContext()));
+        state.put("hapticLevel", IslandReminders.hapticLevel(getContext()));
         state.put("delivery", "inexact");
         return state;
     }
@@ -48,6 +49,13 @@ public class DaymarkIslandPlugin extends Plugin {
         if (enabled == null) { call.reject("enabled must be true or false"); return; }
         IslandReminders.setEnabled(getContext(), enabled);
         call.resolve(status());
+    }
+
+    @PluginMethod public void syncHaptics(PluginCall call) {
+        try {
+            IslandReminders.setHapticLevel(getContext(), call.getString("level", "balanced"));
+            call.resolve(status());
+        } catch (RuntimeException invalid) { call.reject(invalid.getMessage()); }
     }
 
     @PluginMethod public void requestOverlay(PluginCall call) {
