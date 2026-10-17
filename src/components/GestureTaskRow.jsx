@@ -235,8 +235,8 @@ export default function GestureTaskRow({
         <button type="button" role="menuitem" onClick={() => void run(onEdit)}><Pencil size={17}/>Edit task</button>
         <button type="button" role="menuitem" onClick={() => void run(t => onReschedule(t, today))}><CalendarClock size={17}/>Move to today</button>
         <button type="button" role="menuitem" onClick={() => void run(t => onReschedule(t, tomorrow))}><CalendarDays size={17}/>Move to tomorrow</button>
-        {!task.is_complete && <button type="button" role="menuitem" onClick={() => void run(t => onRemind(t, 10))}><BellRing size={17}/>Remind in 10 minutes</button>}
-        {!task.is_complete && <button type="button" role="menuitem" onClick={() => void run(t => onRemind(t, 60))}><CalendarClock size={17}/>Remind in 1 hour</button>}
+        {!task.is_complete && onRemind && <button type="button" role="menuitem" onClick={() => void run(t => onRemind(t, 10))}><BellRing size={17}/>Remind in 10 minutes</button>}
+        {!task.is_complete && onRemind && <button type="button" role="menuitem" onClick={() => void run(t => onRemind(t, 60))}><CalendarClock size={17}/>Remind in 1 hour</button>}
         <button type="button" role="menuitem" className="gesture-delete-menu" onClick={() => void run(onDelete)}><Trash2 size={17}/>Delete…</button>
         <button type="button" role="menuitem" className="gesture-close-menu" onClick={closeActions}><X size={15}/>Close menu</button>
       </motion.div>}

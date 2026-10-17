@@ -13,7 +13,7 @@ import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
 import { motion, MotionConfig, AnimatePresence, LayoutGroup } from 'motion/react'
 import GestureTaskRow from './components/GestureTaskRow.jsx'
 import IslandSettings from './components/IslandSettings.jsx'
-import {scheduleTaskReminder, cancelTaskReminder, syncIslandHaptics} from './lib/island.js'
+import {scheduleTaskReminder, cancelTaskReminder, syncIslandHaptics, isAndroidIslandSupported} from './lib/island.js'
 import { SPRING } from './lib/gestures.js'
 
 const STORAGE = 'daymark:demo-tasks:v1'
@@ -381,7 +381,7 @@ function App() {
     return <GestureTaskRow key={task.id} task={task} index={index} due={due} overdue={overdue}
       today={today} tomorrow={shiftDate(1)} reducedMotion={lessMotion} feel={feel}
       onToggle={toggleTask} onEdit={t=>{feel('action');setModal({task:t})}}
-      onDelete={deleteTask} onReschedule={rescheduleTask} onRemind={remindTask}/>
+      onDelete={deleteTask} onReschedule={rescheduleTask} onRemind={isAndroidIslandSupported() ? remindTask : undefined}/>
   }
   const groups = view === 'inbox' && sort === 'smart' && !query && priority === 'all'
     ? [
