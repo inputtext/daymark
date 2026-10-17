@@ -54,11 +54,23 @@ public class IslandReminderReceiver extends BroadcastReceiver {
         }
         String title = IslandReminders.cleanTitle(reminder.optString("title"));
         IslandReminders.removeRecord(context, id);
-        IslandReminders.notifyDue(context, id, title);
-
-        if (!IslandReminders.enabled(context) || !Settings.canDrawOverlays(context)) return;
+        boolean notificationPosted = IslandReminders.notifyDue(context, id, title);
+        IslandReminders.recordDelivery(context,
+                notificationPosted ? "Notification posted (visibility depends on Android settings)"
+                        : "Notification blocked or disabled", "Not attempted");
+        if (!IslandReminders.enabled(context)) {
+            IslandReminders.recordOverlay(context, "Island switched off");
+            return;
+        }
+        if (!Settings.canDrawOverlays(context)) {
+            IslandReminders.recordOverlay(context, "Overlay permission missing or revoked");
+            return;
+        }
         KeyguardManager lock = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
-        if (lock != null && lock.isDeviceLocked()) return;
+        if (lock != null && lock.isDeviceLocked()) {
+            IslandReminders.recordOverlay(context, "Phone locked: notification fallback");
+            return;
+        }
         Intent overlay = new Intent(context, DaymarkIslandService.class)
                 .setAction(DaymarkIslandService.ACTION_SHOW)
                 .putExtra("id", id).putExtra("title", title);
@@ -67,7 +79,9 @@ public class IslandReminderReceiver extends BroadcastReceiver {
             // notification was already posted and remains usable.
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(overlay);
             else context.startService(overlay);
+            IslandReminders.recordOverlay(context, "Overlay service start requested");
         } catch (RuntimeException restricted) {
+            IslandReminders.recordOverlay(context, "Android blocked background overlay service");
             // Notification fallback handles denied background service startup.
         }
     }
