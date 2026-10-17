@@ -12,6 +12,9 @@ import { hapticFeedback, normalizeHapticLevel } from './lib/haptics.js'
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
 import { motion, MotionConfig, AnimatePresence, LayoutGroup } from 'motion/react'
 import GestureTaskRow from './components/GestureTaskRow.jsx'
+import ExpressiveCalendar from './components/ExpressiveCalendar.jsx'
+import { ExpressiveDatePicker, ExpressiveTimePicker } from './components/ExpressivePickers.jsx'
+import { localISO } from './lib/calendar.js'
 import IslandSettings from './components/IslandSettings.jsx'
 import {scheduleTaskReminder, cancelTaskReminder, syncIslandHaptics, isAndroidIslandSupported} from './lib/island.js'
 import { SPRING } from './lib/gestures.js'
@@ -22,12 +25,14 @@ const NAV = [
   { id: 'inbox', label: 'All tasks', icon: LayoutGrid },
   { id: 'today', label: 'Today', icon: Sun },
   { id: 'upcoming', label: 'Upcoming', icon: CalendarDays },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'completed', label: 'Completed', icon: CheckCircle2 },
 ]
 const TITLES = {
   inbox: ['Your workspace', 'Everything you need to do, all in one place.'],
   today: ['Today’s focus', 'Small steps add up to big things.'],
   upcoming: ['On the horizon', 'Stay one step ahead of what’s next.'],
+  calendar: ['Your calendar', 'A clearer view of what comes next.'],
   completed: ['The done list', 'A little proof of all your progress.'],
 }
 
@@ -142,6 +147,7 @@ function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion }) {
   const [title, setTitle] = useState(task?.title || '')
   const [notes, setNotes] = useState(task?.notes || '')
   const [dueDate, setDueDate] = useState(task?.due_date || initialDue || '')
+  const [dueTime, setDueTime] = useState(task?.due_time || '')
   const [priority, setPriority] = useState(task?.priority || 'medium')
   const smart = useMemo(() => task ? null : parseSmartTask(title), [task, title])
   const applySuggestions = () => {
@@ -161,7 +167,7 @@ function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion }) {
     e.preventDefault()
     const clean = title.trim()
     if (!clean) return
-    onSave({ title: clean, notes: notes.trim(), due_date: dueDate || null, priority })
+    onSave({ title: clean, notes: notes.trim(), due_date: dueDate || null, due_time: dueDate && dueTime ? dueTime : null, priority })
   }
   return <motion.div className="modal-shade v04-modal-shade" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:reducedMotion?0:.18}} onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
     <motion.section className="modal v04-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title" initial={reducedMotion?false:{opacity:0,y:46,scale:.96}} animate={{opacity:1,y:0,scale:1}} exit={reducedMotion?{opacity:0}:{opacity:0,y:30,scale:.97}} transition={reducedMotion?{duration:0}:{type:"spring",stiffness:430,damping:35,mass:.95}}>
@@ -171,7 +177,8 @@ function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion }) {
         {!task && <p className="smart-entry-hint"><Sparkles size={14} aria-hidden="true"/> Offline smart entry: today, tomorrow, next week, in 3 days, !high / !medium / !low</p>}
         {smart?.hasSuggestions && <div className="smart-entry-preview" role="status"><div className="smart-entry-copy"><strong><Sparkles size={14} aria-hidden="true"/> Smart suggestions</strong><span>{[smart.due_date && `Due ${smart.due_date}`, smart.priority && `${smart.priority} priority`].filter(Boolean).join(' · ')}</span></div><button type="button" onClick={applySuggestions} aria-label="Apply suggested date and priority">Apply</button></div>}
         <label>Notes <textarea className="form-input" maxLength={4000} rows={3} placeholder="Add a little context (optional)" value={notes} onChange={e=>setNotes(e.target.value)}/></label>
-        <div className="form-cols"><label>Due date <input type="date" className="form-input" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label><label>Priority <select className="form-input" value={priority} onChange={e=>setPriority(e.target.value)}><option value="low">Low priority</option><option value="medium">Medium priority</option><option value="high">High priority</option></select></label></div>
+        <div className="form-cols"><div className="calendar-modal-field"><span>Due date</span><ExpressiveDatePicker value={dueDate} onChange={setDueDate} lessMotion={reducedMotion}/></div><div className="calendar-modal-field"><span>Time (optional)</span><ExpressiveTimePicker value={dueTime} onChange={setDueTime} lessMotion={reducedMotion}/></div></div>
+        <label>Priority <select className="form-input" value={priority} onChange={e=>setPriority(e.target.value)}><option value="low">Low priority</option><option value="medium">Medium priority</option><option value="high">High priority</option></select></label>
         <div className="modal-actions"><button type="button" className="button-cancel" onClick={onClose}>Cancel</button><button className="button-primary" type="submit" disabled={busy}>{busy ? <LoaderCircle size={17} className="spin"/> : <Plus size={17}/>} {task ? 'Save changes' : 'Add task'}</button></div>
       </form>
     </motion.section>
@@ -183,6 +190,8 @@ function App() {
   const [user, setUser] = useState(null)
   const [tasks, setTasks] = useState([])
   const [view, setView] = useState('inbox')
+  const [selectedCalendarDate,setSelectedCalendarDate] = useState(()=>localISO(new Date()))
+  const cloudTimeSupported = useRef(true)
   const [query, setQuery] = useState('')
   const [priority, setPriority] = useState('all')
   const [sort, setSort] = useState('smart')
@@ -254,11 +263,17 @@ function App() {
   const refresh = useCallback(async () => {
     if (!insforge) return
     setLoadingTasks(true)
-    const {data, error} = await insforge.database.from('tasks')
-      .select('id,user_id,title,notes,due_date,priority,is_complete,created_at,updated_at')
+    let response = await insforge.database.from('tasks')
+      .select('id,user_id,title,notes,due_date,due_time,priority,is_complete,created_at,updated_at')
       .order('created_at', {ascending:false})
-    if (error) notify(error.message || 'Could not load tasks. Check the database migration.')
-    else setTasks(data || [])
+    if (response.error && /due_time|column.*not.*exist|schema cache/i.test(response.error.message||'')) {
+      cloudTimeSupported.current = false
+      response = await insforge.database.from('tasks')
+        .select('id,user_id,title,notes,due_date,priority,is_complete,created_at,updated_at')
+        .order('created_at', {ascending:false})
+    } else if (!response.error) cloudTimeSupported.current = true
+    if (response.error) notify(response.error.message || 'Could not load tasks. Check the database migration.')
+    else setTasks(response.data || [])
     setLoadingTasks(false)
   }, [notify])
   useEffect(() => { if (session === 'cloud' && user) void refresh() }, [session, user, refresh])
@@ -301,9 +316,11 @@ function App() {
           writeDemo([{...fields,id:crypto.randomUUID(),is_complete:false,created_at:now,updated_at:now}, ...tasks])
         }
       } else {
+        if (!cloudTimeSupported.current && fields.due_time) throw new Error('To save task times in your cloud account, apply migrations/20261017_add_due_time.sql in InsForge first.')
+        const cloudFields = cloudTimeSupported.current ? fields : Object.fromEntries(Object.entries(fields).filter(([key])=>key!=='due_time'))
         const req = modal?.task
-          ? insforge.database.from('tasks').update(fields).eq('id',modal.task.id)
-          : insforge.database.from('tasks').insert([fields])
+          ? insforge.database.from('tasks').update(cloudFields).eq('id',modal.task.id)
+          : insforge.database.from('tasks').insert([cloudFields])
         const {error} = await req
         if (error) throw error
         await refresh()
@@ -359,7 +376,7 @@ function App() {
         await refresh()
       }
       feel('success')
-      notify(dueDate === today ? 'Moved to today' : 'Moved to tomorrow')
+      notify('Task moved to ' + new Date(dueDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}))
     } catch (error) {
       feel('error')
       notify('Could not reschedule task: ' + error.message)
@@ -443,6 +460,9 @@ function App() {
       </motion.div>}</AnimatePresence>
       <main className="main-area">
         <div className="page-heading"><div><div className="eyebrow page-eyebrow"><span className="eyebrow-line"/> A FRESH PERSPECTIVE</div><h1>{TITLES[view][0]}<span className="heading-period">.</span></h1><p>{TITLES[view][1]}</p></div><button className="button-primary heading-add" onClick={()=>opening(view==='today'?today:null)}><Plus size={18}/> New task</button></div>
+        {view==='calendar' ? <ExpressiveCalendar tasks={tasks} selected={selectedCalendarDate} onSelect={setSelectedCalendarDate}
+          onCreate={day=>setModal({due:day})} onEdit={task=>setModal({task})}
+          onMove={rescheduleTask} feel={feel} lessMotion={lessMotion} busy={busy}/> : <>
         <div className="hero-row"><div className="hero-card"><div className="hero-copy"><span className="hero-overline"><Sparkles size={15}/> YOUR DAILY MOMENTUM</span><h2>Make room for <em>progress.</em></h2><p>You don’t have to do it all. Just take the next step.</p><button className="hero-link" onClick={()=>navigate('today')}>See today’s tasks <ArrowRight size={16}/></button></div><div className="hero-orbit ring-one"/><div className="hero-orbit ring-two"/><div className="hero-flower">✳</div></div><div className="progress-card"><div className="progress-card-top"><span>YOUR PROGRESS</span><span className="progress-icon"><CheckCheck size={19}/></span></div><div className="progress-value">{progress}<span>%</span></div><p>{stats.completed} of {stats.all} tasks complete</p><div className="progress-track"><motion.span initial={false} animate={{width:`${progress}%`}} transition={lessMotion?{duration:0}:{type:"spring",stiffness:180,damping:30,mass:.8}}/></div><div className="progress-bottom">{progress===100 && stats.all ? 'All caught up — amazing work!' : 'Keep your momentum going'}<ArrowUpRight size={16}/></div></div></div>
         <div className="stat-grid"><button className="stat-card" onClick={()=>navigate('today')}><span className="stat-icon stat-orange"><Clock3 size={18}/></span><div><span className="stat-value">{stats.today}</span><span className="stat-name">Due today & overdue</span></div><ArrowUpRight className="stat-arrow" size={18}/></button><button className="stat-card" onClick={()=>navigate('upcoming')}><span className="stat-icon stat-purple"><CalendarDays size={18}/></span><div><span className="stat-value">{stats.upcoming}</span><span className="stat-name">Coming up</span></div><ArrowUpRight className="stat-arrow" size={18}/></button><button className="stat-card" onClick={()=>navigate('completed')}><span className="stat-icon stat-green"><CheckCircle2 size={18}/></span><div><span className="stat-value">{stats.completed}</span><span className="stat-name">Tasks completed</span></div><ArrowUpRight className="stat-arrow" size={18}/></button></div>
         <section className="task-panel"><div className="task-panel-top"><div><h2>{view==='inbox'?'Your to-dos':view==='today'?'Your focus list':view==='upcoming'?'Coming up':'Completed tasks'} <span className="task-count">{visible.length}</span></h2><p>A little organization goes a long way.</p></div><div className="task-panel-tools"><button className="text-icon-button" onClick={()=>{setView('inbox');setPriority('all');setQuery('')}}><ListFilter size={16}/> Reset filters</button></div></div>
@@ -451,6 +471,7 @@ function App() {
           {loadingTasks ? <div className="empty-state"><LoaderCircle size={29} className="spin"/><h3>Getting your tasks…</h3></div> : visible.length ? <LayoutGroup id="daymark-task-list"><div className="task-list">{groups.map(group=><motion.div layout={lessMotion ? false : "position"} className="task-group" key={group.name}><div className="task-group-title"><span>{group.name}</span><span>{group.items.length}</span></div><AnimatePresence initial={false}>{group.items.map(renderTask)}</AnimatePresence></motion.div>)}</div></LayoutGroup> : <div className="empty-state"><div className="empty-illustration"><CheckCheck size={28}/></div><h3>{query || priority!=='all'?'No matching tasks':'A little space to breathe.'}</h3><p>{query || priority!=='all'?'Try a different search or filter.':'No tasks in this view yet. Add one and get moving.'}</p><button className="button-primary" onClick={()=>opening(view==='today'?today:null)}><Plus size={17}/> Add a task</button></div>}
           <div className="task-panel-bottom"><div><Keyboard size={16}/> Press <kbd>N</kbd> to create a task · <kbd>/</kbd> to search</div><span>{stats.active} left to do</span></div>
         </section>
+        </>}
         <footer className="app-footer"><span>Made for the little wins. ✦</span><span>{session==='demo'?'Demo • Saved locally':'Securely powered by InsForge'}</span></footer>
       </main>
     </div>

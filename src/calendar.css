@@ -1,0 +1,109 @@
+/* Daymark v0.6 — Material 3 Expressive-inspired calendar and picker patterns.
+ * Custom React controls for Capacitor; no Google UI components bundled.
+ */
+.daymark-calendar{display:grid;gap:21px;min-width:0}
+.daymark-calendar-card,.daymark-timeline{background:var(--surface);border:1px solid var(--line);border-radius:38px;padding:clamp(17px,3vw,32px);box-shadow:var(--ex-shadow);min-width:0}
+.daymark-calendar-head,.daymark-timeline-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.daymark-calendar-eyebrow,.daymark-timeline-head>div>span{display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:1px;font-weight:850;color:var(--accent)}
+.daymark-calendar-head h2,.daymark-timeline-head h2{font-size:clamp(23px,3vw,32px);letter-spacing:-.8px;color:var(--ink);margin:9px 0 4px;font-weight:900}
+.daymark-calendar-head p{font-size:12px;color:var(--muted);margin:0;line-height:1.6}
+.daymark-calendar-navigation{display:flex;align-items:center;gap:6px}
+.daymark-calendar-navigation button{border:0;border-radius:50%;width:43px;height:43px;display:grid;place-items:center;background:var(--field);color:var(--ink)}
+.daymark-calendar-navigation button:first-child{width:auto;border-radius:999px;padding:0 17px;background:var(--ex-tonal);color:var(--ex-on-tonal);font-size:12px;font-weight:800}
+.daymark-calendar-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;max-width:390px;background:var(--field);padding:5px;border-radius:999px;margin:23px 0 20px}
+.daymark-calendar-modes button{border:0;border-radius:999px;padding:12px 9px;background:transparent;color:var(--muted);font-size:12px;font-weight:800;transition:background .2s,transform .2s}
+.daymark-calendar-modes button.is-selected{background:var(--accent);color:var(--ex-on-accent);box-shadow:var(--ex-shadow)}
+.daymark-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.daymark-calendar-weekday{text-align:center;padding:9px 0 13px;font-size:11px;font-weight:800;color:var(--muted)}
+.daymark-calendar-date{min-height:clamp(51px,8vw,86px);border:1px solid transparent;border-radius:21px;background:var(--field);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--ink);position:relative;transition:background .22s,border-radius .25s}
+.daymark-calendar-date.is-outside{opacity:.38}
+.daymark-calendar-date.is-today{border-color:var(--accent)}
+.daymark-calendar-date.is-selected{background:var(--accent);color:var(--ex-on-accent);border-radius:29px 13px 29px 13px;box-shadow:0 5px 15px color-mix(in srgb,var(--accent) 24%,transparent)}
+.daymark-calendar-date.is-drop-target:hover{outline:3px dashed var(--accent)}
+.daymark-calendar-date-number{font-weight:850;font-size:clamp(13px,2.5vw,18px)}
+.daymark-calendar-dots{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800}
+.daymark-calendar-dots i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.is-selected .daymark-calendar-dots i{background:var(--ex-on-accent)}
+.daymark-calendar-summary{margin-top:22px;padding:14px 17px;background:var(--ex-tonal);border-radius:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--ex-on-tonal);font-size:12px}
+.daymark-calendar-summary span{display:flex;align-items:center;gap:9px}
+.daymark-calendar-summary strong{white-space:nowrap}
+.daymark-calendar-add,.daymark-timeline-empty button{display:flex;align-items:center;justify-content:center;gap:7px;border:0;border-radius:999px;background:var(--accent);color:var(--ex-on-accent);padding:13px 18px;font-size:12px;font-weight:850}
+.daymark-calendar-hint{font-size:11px;color:var(--muted);line-height:1.6;margin:12px 0 23px}
+.daymark-timeline-empty{text-align:center;padding:43px 14px;background:var(--field);border-radius:26px;color:var(--muted)}
+.daymark-timeline-empty svg{color:var(--accent)}
+.daymark-timeline-empty h3{color:var(--ink);font-size:17px;margin:10px 0 6px}
+.daymark-timeline-empty p{font-size:12px}
+.daymark-timeline-empty button{margin:17px auto 0}
+.daymark-timeline-groups{display:grid;gap:19px}
+.daymark-timeline-group{display:grid;grid-template-columns:115px minmax(0,1fr);gap:16px}
+.daymark-timeline-slot{display:flex;flex-direction:column;gap:5px;padding-top:13px;color:var(--ink);font-size:12px;font-weight:850}
+.daymark-timeline-slot small{font-size:10px;color:var(--muted);font-weight:500}
+.daymark-timeline-tasks{display:grid;gap:9px}
+.daymark-timeline-task{display:flex;gap:12px;align-items:center;min-width:0;border-radius:23px;background:var(--field);padding:15px;touch-action:pan-y;user-select:none}
+.daymark-timeline-task.is-dragging{opacity:.65;outline:2px dashed var(--accent)}
+.daymark-timeline-task.is-done .daymark-timeline-copy strong{text-decoration:line-through;opacity:.65}
+.daymark-timeline-priority{width:6px;height:43px;border-radius:999px;flex:none;background:var(--accent)}
+.daymark-timeline-priority.priority-high{background:#e58a8e}
+.daymark-timeline-priority.priority-low{background:#71bda4}
+.daymark-timeline-copy{flex:1;min-width:0}
+.daymark-timeline-copy strong{display:flex;align-items:center;gap:4px;color:var(--ink);font-size:13px;overflow-wrap:anywhere}
+.daymark-timeline-copy p{font-size:11px;color:var(--muted);margin:5px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.daymark-timeline-copy>span{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);margin-top:6px}
+.daymark-timeline-actions{display:flex;flex-direction:column;gap:5px;flex:none}
+.daymark-timeline-actions button,.daymark-timeline-actions select{border:0;border-radius:11px;background:var(--ex-tonal);color:var(--ex-on-tonal);padding:8px 9px;font-size:11px;font-weight:750;max-width:102px}
+.calendar-modal-field{display:grid;gap:9px;min-width:0;color:var(--ink);font-size:12px;font-weight:750}
+.calendar-picker-trigger{display:flex;align-items:center;gap:10px;justify-content:flex-start;width:100%;min-height:50px;padding:12px 13px;border:1px solid var(--line);border-radius:18px;background:var(--field);color:var(--ink);font-size:12px;font-weight:750;text-align:left}
+.calendar-picker-trigger svg:last-child{margin-left:auto}
+.calendar-picker-shade{position:fixed;inset:0;z-index:500;background:rgba(18,13,27,.55);display:flex;align-items:center;justify-content:center;padding:14px;backdrop-filter:blur(7px)}
+.calendar-picker-dialog{width:min(370px,100%);max-height:min(92dvh,750px);overflow:auto;background:var(--surface);color:var(--ink);border-radius:30px;padding:22px;box-shadow:var(--ex-pop-shadow)}
+.calendar-picker-top{display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:1.1px;font-weight:900;color:var(--muted)}
+.calendar-picker-top button,.calendar-picker-selected button,.calendar-picker-month button{border:0;border-radius:50%;width:40px;height:40px;display:grid;place-items:center;background:transparent;color:var(--ink)}
+.calendar-picker-selected{display:flex;justify-content:space-between;align-items:center;padding:17px 0;border-bottom:1px solid var(--line);gap:10px}
+.calendar-picker-selected strong{font-size:29px;letter-spacing:-1px}
+.calendar-picker-month{display:flex;align-items:center;justify-content:space-between;margin:12px 0}
+.calendar-picker-month strong{font-size:13px}
+.calendar-picker-month>div{display:flex}
+.calendar-picker-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.calendar-picker-weekday{display:grid;place-items:center;min-height:39px;font-size:11px;color:var(--muted);font-weight:800}
+.calendar-picker-day{aspect-ratio:1;border:0;border-radius:50%;background:transparent;color:var(--ink);font-size:12px;font-weight:700}
+.calendar-picker-day.is-outside{opacity:.35}
+.calendar-picker-day.is-picked{background:var(--accent);color:var(--ex-on-accent)}
+.calendar-picker-input{display:grid;gap:9px;margin:20px 0;font-size:12px;font-weight:800}
+.calendar-picker-input input,.calendar-time-inputs input{background:var(--field);color:var(--ink);border:1px solid var(--line);padding:14px;border-radius:16px;max-width:100%}
+.calendar-picker-footer{display:flex;justify-content:flex-end;gap:5px;margin-top:20px}
+.calendar-picker-footer button{border:0;border-radius:999px;padding:11px 14px;background:transparent;color:var(--accent);font-size:12px;font-weight:850;display:flex;align-items:center;gap:5px}
+.calendar-picker-footer button:first-child{margin-right:auto}
+.calendar-picker-footer .calendar-picker-confirm{background:var(--accent);color:var(--ex-on-accent)}
+.calendar-time-digits{display:flex;align-items:center;justify-content:center;gap:5px;margin:20px 0 17px}
+.calendar-time-digits>button{border:0;border-radius:18px;background:var(--field);color:var(--ink);padding:15px 11px;font-size:40px;font-weight:850;letter-spacing:-1px}
+.calendar-time-digits>button.is-selected{background:var(--ex-tonal);color:var(--ex-on-tonal)}
+.calendar-time-digits>span{font-size:32px;font-weight:800}
+.calendar-time-period{display:grid;gap:3px;margin-left:5px}
+.calendar-time-period button{border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font-size:12px;font-weight:800;padding:9px 12px}
+.calendar-time-period button.is-selected{background:var(--accent);color:var(--ex-on-accent)}
+.calendar-clock{position:relative;margin:0 auto;width:min(255px,100%);aspect-ratio:1;background:var(--field);border-radius:50%}
+.calendar-clock:after{content:'';position:absolute;top:50%;left:50%;width:9px;height:9px;background:var(--accent);border-radius:50%;transform:translate(-50%,-50%)}
+.calendar-clock-hand{position:absolute;left:calc(50% - 1px);top:50%;height:39%;width:2px;background:var(--accent);transform-origin:center 0;pointer-events:none}
+.calendar-clock button{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:38px;height:38px;border-radius:50%;border:0;background:transparent;color:var(--ink);font-size:12px;font-weight:800;z-index:1}
+.calendar-clock button.is-selected{background:var(--accent);color:var(--ex-on-accent)}
+.calendar-time-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:30px 5px}
+.calendar-time-inputs label{display:grid;gap:8px;font-size:12px;font-weight:800}
+@media(max-width:600px){
+ .daymark-calendar-card,.daymark-timeline{border-radius:28px;padding:17px}
+ .daymark-calendar-date{min-height:49px;border-radius:14px}
+ .daymark-calendar-date.is-selected{border-radius:18px 9px 18px 9px}
+ .daymark-calendar-grid{gap:3px}
+ .daymark-timeline-group{grid-template-columns:1fr;gap:6px}
+ .daymark-timeline-slot{flex-direction:row;align-items:center;justify-content:space-between}
+ .daymark-timeline-task{flex-wrap:wrap}
+ .daymark-timeline-actions{margin-left:auto;flex-direction:row}
+ .calendar-picker-dialog{padding:18px}
+}
+@media(prefers-reduced-motion:reduce){
+ .daymark-calendar-date,.daymark-calendar-modes button{transition:none}
+}
+:root[data-less-motion="true"] .daymark-calendar-date,
+:root[data-less-motion="true"] .daymark-calendar-modes button{transition:none}
+
+/* Five navigation destinations in v0.6, including Calendar. */
+@media(max-width:780px){.bottom-nav{grid-template-columns:repeat(5,minmax(0,1fr))}.bottom-nav-icon{min-width:42px!important}}
