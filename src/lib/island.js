@@ -9,6 +9,10 @@ export const UNSUPPORTED_ISLAND_STATUS = Object.freeze({
   notificationsGranted: false,
   scheduledCount: 0,
   delivery: 'inexact',
+  placementMode: 'camera',
+  placementX: 0,
+  placementY: 0,
+  placementWidth: 280,
 })
 
 export const isAndroidIslandSupported = () => Capacitor.getPlatform() === 'android'
@@ -45,6 +49,22 @@ export async function syncIslandHaptics(level) {
   if (!isAndroidIslandSupported()) return
   return DaymarkIsland.syncHaptics({level})
 }
+export const ISLAND_PLACEMENT_DEFAULT = Object.freeze({mode: 'camera', x: 0, y: 0, width: 280})
+
+export function validateIslandPlacement({mode, x, y, width}) {
+  if (!['camera', 'safe'].includes(mode)) throw new Error('Choose camera-aligned or below-status-bar placement')
+  if (![x, y, width].every(Number.isInteger)) throw new Error('Placement values must be whole numbers')
+  if (x < -120 || x > 120 || y < -24 || y > 140 || width < 180 || width > 340) {
+    throw new Error('Placement value is outside the supported range')
+  }
+  return {mode, x, y, width}
+}
+
+export async function setIslandPlacement(placement) {
+  if (!isAndroidIslandSupported()) throw new Error('Island placement requires Android')
+  return DaymarkIsland.setPlacement(validateIslandPlacement(placement))
+}
+
 export async function requestIslandOverlay() {
   if (!isAndroidIslandSupported()) throw new Error('Overlay permission is Android-only')
   return DaymarkIsland.requestOverlay()

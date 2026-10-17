@@ -56,6 +56,31 @@ public final class IslandReminders {
         return prefs(context).getString("hapticLevel", "balanced");
     }
 
+    // Position is stored locally and applied by WindowManager on every preview.
+    // "camera" requests full-screen layout, but Android owns the status bar
+    // and may still restrict overlays near the physical camera cutout.
+    static String placementMode(Context context) {
+        return prefs(context).getString("placementMode", "camera");
+    }
+    static int placementX(Context context) {
+        return prefs(context).getInt("placementX", 0);
+    }
+    static int placementY(Context context) {
+        return prefs(context).getInt("placementY", 0);
+    }
+    static int placementWidth(Context context) {
+        return prefs(context).getInt("placementWidth", 280);
+    }
+    static void setPlacement(Context context, String mode, int x, int y, int width) {
+        if (!"camera".equals(mode) && !"safe".equals(mode))
+            throw new IllegalArgumentException("Unknown placement mode");
+        if (x < -120 || x > 120 || y < -24 || y > 140 || width < 180 || width > 340)
+            throw new IllegalArgumentException("Placement outside allowed range");
+        prefs(context).edit().putString("placementMode", mode)
+                .putInt("placementX", x).putInt("placementY", y)
+                .putInt("placementWidth", width).apply();
+    }
+
     static String cleanTitle(String title) {
         String normalized = title == null ? "" : title.trim();
         if (normalized.isEmpty()) normalized = "Your Daymark reminder";
