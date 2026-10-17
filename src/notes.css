@@ -1,0 +1,92 @@
+/* Daymark v0.7 — Quick Notes & Material 3 Expressive-inspired FAB menu.
+ * Custom React/CSS, not a bundled Google proprietary UI component. */
+.notes-workspace{display:grid;gap:22px;min-width:0}
+.notes-overview{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:clamp(23px,4vw,39px);border-radius:40px 76px 38px 38px;background:var(--ex-tonal);color:var(--ex-on-tonal);min-height:248px}
+.notes-overview-copy{position:relative;z-index:1;max-width:650px}
+.notes-eyebrow{display:flex;align-items:center;gap:8px;letter-spacing:1.4px;font-size:10px;font-weight:900}
+.notes-overview h2{font-family:'Google Sans',Manrope,system-ui,sans-serif;letter-spacing:-1.2px;line-height:1.1;font-size:clamp(25px,4vw,42px);font-weight:900;margin:19px 0 11px}
+.notes-overview p{font-size:13px;line-height:1.7;opacity:.85;max-width:480px}
+.notes-stats{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+.notes-stats span{display:flex;align-items:center;gap:7px;padding:8px 12px;background:color-mix(in srgb,var(--ex-on-tonal) 10%,transparent);border-radius:999px;font-size:11px;font-weight:800}
+.notes-overview-create{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:7px;border:0;border-radius:999px;min-height:48px;padding:12px 21px;background:var(--accent);color:var(--ex-on-accent);font-size:12px;font-weight:850;flex:none}
+.notes-overview-glow{position:absolute;right:110px;top:-80px;font-size:270px;line-height:1;opacity:.08;pointer-events:none}
+.notes-toolbar{display:flex;align-items:center;gap:15px;justify-content:space-between}
+.notes-toolbar>span{font-size:11px;font-weight:750;color:var(--muted);white-space:nowrap}
+.notes-search{display:flex;align-items:center;gap:10px;min-height:51px;padding:0 16px;max-width:480px;width:100%;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.notes-search:focus-within{outline:2px solid var(--accent)}
+.notes-search input{border:0;outline:0!important;min-width:0;flex:1;background:transparent;color:var(--ink);font-size:13px}
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(275px,100%),1fr));align-items:start;gap:15px}
+.note-card{position:relative;isolation:isolate;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:28px 43px 28px 28px;box-shadow:var(--ex-shadow);min-height:203px;overflow:hidden;transition:border-radius .28s var(--ex-ease),box-shadow .28s var(--ex-ease)}
+.note-card.is-pinned{background:color-mix(in srgb,var(--ex-tonal) 44%,var(--surface));border-color:color-mix(in srgb,var(--accent) 25%,var(--line))}
+.note-card:hover,.note-card:focus-within{border-radius:39px 26px 39px 26px;box-shadow:var(--ex-pop-shadow)}
+.note-card-main{display:flex;flex:1;align-items:flex-start;flex-direction:column;width:100%;text-align:left;gap:9px;padding:23px 22px 4px;background:transparent;border:0;min-width:0;color:var(--ink)}
+.note-card-stamp{display:flex;align-items:center;gap:6px;color:var(--accent)}
+.note-card-main strong{font-size:16px;font-weight:850;letter-spacing:-.3px;overflow-wrap:anywhere}
+.note-card-main p{color:var(--muted);font-size:12px;line-height:1.55;margin:0;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
+.note-card-main time{font-size:10px;color:var(--muted);margin-top:auto;padding-top:9px}
+.note-card-actions{display:flex;justify-content:flex-end;padding:0 15px 12px;gap:6px}
+.note-card-actions button{width:43px;height:43px;display:grid;place-items:center;border:0;border-radius:15px;background:transparent;color:var(--muted)}
+.note-card-actions button:hover,.note-card-actions button:focus-visible{color:var(--accent);background:var(--ex-tonal)}
+.note-card-actions button:last-child:hover{color:#bd5066;background:var(--ex-tertiary)}
+.notes-empty{display:flex;align-items:center;flex-direction:column;gap:8px;text-align:center;padding:50px 18px 58px;border:1px dashed var(--line);border-radius:31px;background:var(--surface)}
+.notes-empty>span{display:grid;place-items:center;width:66px;height:66px;border-radius:23px;background:var(--ex-tonal);color:var(--ex-on-tonal)}
+.notes-empty h3{font-weight:850;color:var(--ink);font-size:19px;margin:6px 0 0}
+.notes-empty p{font-size:12px;color:var(--muted);line-height:1.65;max-width:330px;margin:0}
+.notes-empty button{display:flex;align-items:center;gap:7px;margin-top:15px;border:0;border-radius:999px;background:var(--accent);color:var(--ex-on-accent);padding:13px 20px;font-size:12px;font-weight:800}
+.notes-local-footnote{font-size:11px;line-height:1.6;color:var(--muted);text-align:center;margin:3px 0}
+
+/* Quick capture bottom sheet floats above app chrome and keyboard. */
+.note-editor-shade{position:fixed;inset:0;z-index:1500;display:flex;align-items:flex-end;justify-content:center;background:rgba(24,18,33,.45);backdrop-filter:blur(9px);padding:12px;overscroll-behavior:contain}
+.note-editor-sheet{display:flex;flex-direction:column;width:min(650px,100%);max-height:min(86dvh,780px);min-height:min(460px,76dvh);overflow:auto;overscroll-behavior:contain;border-radius:38px 38px 23px 23px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--ex-pop-shadow);padding:10px clamp(19px,4vw,30px) calc(17px + env(safe-area-inset-bottom,0px));color:var(--ink)}
+.note-editor-handle{width:39px;height:5px;border-radius:999px;background:var(--line);margin:4px auto 16px}
+.note-editor-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.note-editor-top>span{display:flex;align-items:center;gap:8px;letter-spacing:1px;font-size:10px;font-weight:900;color:var(--accent)}
+.note-editor-top>div{display:flex;gap:4px}
+.note-editor-top button{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:50%;background:var(--field);color:var(--ink)}
+.note-editor-top button:active{background:var(--ex-tonal)}
+.note-editor-title{width:100%;margin:22px 0 9px;padding:10px 2px;border:0;border-radius:0!important;background:transparent!important;color:var(--ink);font-size:clamp(23px,4.5vw,32px);font-weight:900;letter-spacing:-.9px;outline:0!important}
+.note-editor-title::placeholder,.note-editor-body::placeholder{color:var(--muted);opacity:.7}
+.note-editor-body{resize:none;flex:1;width:100%;min-height:195px;max-height:55dvh;padding:7px 2px;background:transparent!important;border:0;border-radius:0!important;color:var(--ink);font-size:15px;line-height:1.85;outline:0!important}
+.note-editor-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:15px}
+.note-editor-foot>span{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--muted);line-height:1.5}
+.note-editor-foot>span svg{color:var(--accent);flex:none}
+.note-editor-done{display:flex;align-items:center;justify-content:center;gap:7px;border:0;min-height:45px;padding:10px 17px;border-radius:999px;background:var(--accent);color:var(--ex-on-accent);font-size:12px;font-weight:850}
+.note-editor-sheet:focus-within .note-editor-title:focus-visible,.note-editor-body:focus-visible{outline:0!important}
+
+/* FAB expansion sits on the same right-thumb anchor as the old + button. */
+.expressive-fab-root{display:none;position:fixed;right:20px;bottom:calc(94px + env(safe-area-inset-bottom,0px));z-index:120;isolation:isolate}
+.expressive-fab-root .expressive-fab-trigger{position:relative!important;right:auto!important;bottom:auto!important;display:grid;place-items:center;width:64px;height:64px;padding:0;margin:0;border:0;border-radius:22px 30px 22px 30px;box-shadow:0 12px 28px color-mix(in srgb,var(--accent) 25%,transparent);touch-action:none;user-select:none}
+.expressive-fab-trigger>span{display:grid;place-items:center;pointer-events:none}
+.expressive-fab-root.is-open .expressive-fab-trigger{border-radius:50%;box-shadow:0 12px 33px color-mix(in srgb,var(--accent) 25%,transparent)}
+.expressive-fab-options{position:absolute;right:0;bottom:calc(100% + 12px);display:flex;flex-direction:column;align-items:flex-end;gap:7px;width:max-content;max-width:min(290px,calc(100vw - 34px));padding:11px;border-radius:28px;background:color-mix(in srgb,var(--surface) 95%,transparent);border:1px solid var(--line);box-shadow:var(--ex-pop-shadow);backdrop-filter:blur(17px)}
+.expressive-fab-option{display:flex;justify-content:flex-end;align-items:center;gap:11px;width:100%;min-height:56px;border:0;border-radius:20px;padding:6px 8px 6px 15px;background:transparent;color:var(--ink);text-align:right;touch-action:manipulation}
+.expressive-fab-option:active,.expressive-fab-option:focus-visible{background:var(--ex-tonal)}
+.expressive-fab-option.is-featured{background:var(--ex-tonal);color:var(--ex-on-tonal)}
+.expressive-fab-text{display:flex;align-items:flex-end;flex-direction:column;gap:3px;min-width:0}
+.expressive-fab-text strong{font-size:13px;font-weight:850;white-space:nowrap}
+.expressive-fab-text small{font-size:10px;color:var(--muted);white-space:nowrap}
+.expressive-fab-option-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:17px 13px 17px 13px;background:var(--field);color:var(--accent);flex:none}
+.expressive-fab-option.is-featured .expressive-fab-option-icon{background:var(--accent);color:var(--ex-on-accent)}
+@media(max-width:780px){
+  .expressive-fab-root{display:block;right:20px;bottom:calc(94px + var(--dm-inset-bottom,env(safe-area-inset-bottom,0px)))}
+  .expressive-fab-root .expressive-fab-trigger{display:grid}
+}
+@media(max-width:560px){
+  .notes-overview{min-height:220px;padding:22px 20px;border-radius:29px 55px 29px 29px;flex-direction:column;align-items:flex-start}
+  .notes-overview h2{font-size:29px;margin-top:11px}
+  .notes-overview p{font-size:12px;margin:0}
+  .notes-overview-create{min-height:44px}
+  .notes-grid{grid-template-columns:1fr;gap:12px}
+  .note-card{min-height:175px}
+  .notes-toolbar>span{display:none}
+  .note-editor-shade{padding:0}
+  .note-editor-sheet{max-height:calc(90dvh - env(safe-area-inset-top,0px));min-height:53dvh;border-radius:34px 34px 0 0;padding:10px 20px calc(13px + env(safe-area-inset-bottom,0px))}
+  .note-editor-body{min-height:165px}
+  .note-editor-foot>span{max-width:60%}
+}
+@media(prefers-reduced-motion:reduce){
+  .note-card,.note-editor-top button,.expressive-fab-trigger{transition:none!important}
+}
+:root[data-less-motion="true"] .note-card,
+:root[data-less-motion="true"] .note-editor-top button,
+:root[data-less-motion="true"] .expressive-fab-trigger{transition:none!important}

@@ -3,7 +3,7 @@ import {
   ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, CheckCircle2,
   ChevronDown, Circle, Clock3, Command, Inbox, Keyboard, LayoutGrid, ListFilter,
   LoaderCircle, LockKeyhole, LogOut, Mail, Moon, MoreHorizontal, Pencil,
-  Plus, Search, ShieldCheck, Sparkles, Sun, Trash2, X,
+  Plus, Search, ShieldCheck, Sparkles, StickyNote, Sun, Trash2, X,
 } from 'lucide-react'
 import { insforge, INSFORGE_CONFIGURED } from './lib/insforge.js'
 import { createDemoTasks, dateISO, filterTasks, getDueLabel, getStats, shiftDate } from './lib/tasks.js'
@@ -12,6 +12,10 @@ import { hapticFeedback, normalizeHapticLevel } from './lib/haptics.js'
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
 import { motion, MotionConfig, AnimatePresence, LayoutGroup } from 'motion/react'
 import GestureTaskRow from './components/GestureTaskRow.jsx'
+import NotesWorkspace from './components/NotesWorkspace.jsx'
+import QuickNoteEditor from './components/QuickNoteEditor.jsx'
+import ExpressiveFabMenu from './components/ExpressiveFabMenu.jsx'
+import {notesStorageKey,readNotes,writeNotes,newDraft,saveDraft,togglePinned,deleteNote} from './lib/notes.js'
 import ExpressiveCalendar from './components/ExpressiveCalendar.jsx'
 import { ExpressiveDatePicker, ExpressiveTimePicker } from './components/ExpressivePickers.jsx'
 import { localISO } from './lib/calendar.js'
@@ -26,6 +30,7 @@ const NAV = [
   { id: 'today', label: 'Today', icon: Sun },
   { id: 'upcoming', label: 'Upcoming', icon: CalendarDays },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'notes', label: 'Notes', icon: StickyNote },
   { id: 'completed', label: 'Completed', icon: CheckCircle2 },
 ]
 const TITLES = {
@@ -33,6 +38,7 @@ const TITLES = {
   today: ['Today’s focus', 'Small steps add up to big things.'],
   upcoming: ['On the horizon', 'Stay one step ahead of what’s next.'],
   calendar: ['Your calendar', 'A clearer view of what comes next.'],
+  notes: ['Your notes', 'Save a thought before it slips away.'],
   completed: ['The done list', 'A little proof of all your progress.'],
 }
 
@@ -196,6 +202,8 @@ function App() {
   const [priority, setPriority] = useState('all')
   const [sort, setSort] = useState('smart')
   const [modal, setModal] = useState(null) // null | {task?, due?}
+  const [notes,setNotes] = useState([])
+  const [noteEditor,setNoteEditor] = useState(null)
   const [busy, setBusy] = useState(false)
   const [loadingTasks, setLoadingTasks] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -220,6 +228,50 @@ function App() {
   const searchRef = useRef(null)
   const today = dateISO()
   const notify = useCallback(message => setToast(message), [])
+  // Device-local notes are isolated by demo workspace or authenticated user ID.
+  // They do not use the public InsForge anon key or require a schema migration.
+  const noteScope = notesStorageKey(session, user?.id)
+  useEffect(() => {
+    setNotes(readNotes(localStorage,noteScope))
+    setNoteEditor(null)
+  },[noteScope])
+  const mutateNotes = useCallback(transform => {
+    try {
+      const next = transform(readNotes(localStorage,noteScope))
+      writeNotes(localStorage,noteScope,next)
+      setNotes(next)
+      return true
+    } catch(error) {
+      notify('Could not save note: '+(error?.message||'Local storage unavailable'))
+      return false
+    }
+  },[noteScope,notify])
+  const openQuickNote = () => {
+    setNoteEditor(newDraft(crypto.randomUUID()))
+    setSidebarOpen(false)
+    setAppearanceOpen(false)
+    feel('action')
+  }
+  const editNote = note => {
+    setNoteEditor({...note})
+    setSidebarOpen(false)
+    feel('selection')
+  }
+  const updateNote = draft => {
+    if(mutateNotes(items=>saveDraft(items,draft)))setNoteEditor(draft)
+  }
+  const pinNote = id => {
+    if(mutateNotes(items=>togglePinned(items,id)))feel('selection')
+  }
+  const deleteSavedNote = note => {
+    if(!window.confirm('Delete this note? This cannot be undone.'))return
+    if(mutateNotes(items=>deleteNote(items,note.id))) {
+      setNoteEditor(editor=>editor?.id===note.id?null:editor)
+      feel('warning')
+      notify('Note deleted')
+    }
+  }
+
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -286,13 +338,14 @@ function App() {
       }
       const el = e.target
       const editing = ['INPUT','TEXTAREA','SELECT'].includes(el?.tagName) || el?.isContentEditable
-      if (editing || modal) return
+      if (editing || modal || noteEditor) return
       if (e.key.toLowerCase() === 'n') { e.preventDefault();setModal({}) }
+      if (e.key.toLowerCase() === 'q') { e.preventDefault();openQuickNote() }
       if (e.key === '/') { e.preventDefault();searchRef.current?.focus() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [modal, session])
+  }, [modal, noteEditor, session, noteScope])
 
   const startDemo = () => { feel('success');setTasks(getDemo());setSession('demo');setView('inbox') }
   const authenticated = person => {setUser(person);setSession('cloud');setView('inbox')}
@@ -301,7 +354,7 @@ function App() {
       const {error} = await insforge.auth.signOut()
       if (error) {notify(error.message);return}
     }
-    setUser(null);setTasks([]);setSession('guest');setQuery('');setView('inbox')
+    setUser(null);setTasks([]);setNotes([]);setNoteEditor(null);setSession('guest');setQuery('');setView('inbox')
   }
   const writeDemo = updated => {setTasks(updated);localStorage.setItem(STORAGE, JSON.stringify(updated))}
   const saveTask = async fields => {
@@ -413,7 +466,7 @@ function App() {
       <div className="sidebar-top"><Logo light /><button className="sidebar-close" onClick={()=>{feel('selection');setSidebarOpen(false)}} aria-label="Close menu"><X size={18}/></button></div>
       <div className="workspace-label">WORKSPACE <ChevronDown size={13}/></div>
       <nav className="side-nav" aria-label="Task views">
-        {NAV.map(item => <button key={item.id} className={`nav-button ${view===item.id?'selected':''}`} onClick={()=>navigate(item.id)}><item.icon size={18}/><span>{item.label}</span><span className="nav-count">{stats[item.id==='inbox'?'all':item.id] || 0}</span></button>)}
+        {NAV.map(item => <button key={item.id} className={`nav-button ${view===item.id?'selected':''}`} onClick={()=>navigate(item.id)}><item.icon size={18}/><span>{item.label}</span><span className="nav-count">{item.id==='notes'?notes.length:(stats[item.id==='inbox'?'all':item.id] || 0)}</span></button>)}
       </nav>
       <div className="nav-divider"/>
       <div className="workspace-label">QUICK ACCESS</div>
@@ -459,8 +512,8 @@ function App() {
         </motion.section>
       </motion.div>}</AnimatePresence>
       <main className="main-area">
-        <div className="page-heading"><div><div className="eyebrow page-eyebrow"><span className="eyebrow-line"/> A FRESH PERSPECTIVE</div><h1>{TITLES[view][0]}<span className="heading-period">.</span></h1><p>{TITLES[view][1]}</p></div><button className="button-primary heading-add" onClick={()=>opening(view==='today'?today:null)}><Plus size={18}/> New task</button></div>
-        {view==='calendar' ? <ExpressiveCalendar tasks={tasks} selected={selectedCalendarDate} onSelect={setSelectedCalendarDate}
+        <div className="page-heading"><div><div className="eyebrow page-eyebrow"><span className="eyebrow-line"/> A FRESH PERSPECTIVE</div><h1>{TITLES[view][0]}<span className="heading-period">.</span></h1><p>{TITLES[view][1]}</p></div><button className="button-primary heading-add" onClick={()=>view==='notes'?openQuickNote():opening(view==='today'?today:null)}><Plus size={18}/> {view==='notes'?'Quick note':'New task'}</button></div>
+        {view==='notes' ? <NotesWorkspace notes={notes} onNew={openQuickNote} onOpen={editNote} onPin={pinNote} onDelete={deleteSavedNote} feel={feel} reducedMotion={lessMotion}/> : view==='calendar' ? <ExpressiveCalendar tasks={tasks} selected={selectedCalendarDate} onSelect={setSelectedCalendarDate}
           onCreate={day=>setModal({due:day})} onEdit={task=>setModal({task})}
           onMove={rescheduleTask} feel={feel} lessMotion={lessMotion} busy={busy}/> : <>
         <div className="hero-row"><div className="hero-card"><div className="hero-copy"><span className="hero-overline"><Sparkles size={15}/> YOUR DAILY MOMENTUM</span><h2>Make room for <em>progress.</em></h2><p>You don’t have to do it all. Just take the next step.</p><button className="hero-link" onClick={()=>navigate('today')}>See today’s tasks <ArrowRight size={16}/></button></div><div className="hero-orbit ring-one"/><div className="hero-orbit ring-two"/><div className="hero-flower">✳</div></div><div className="progress-card"><div className="progress-card-top"><span>YOUR PROGRESS</span><span className="progress-icon"><CheckCheck size={19}/></span></div><div className="progress-value">{progress}<span>%</span></div><p>{stats.completed} of {stats.all} tasks complete</p><div className="progress-track"><motion.span initial={false} animate={{width:`${progress}%`}} transition={lessMotion?{duration:0}:{type:"spring",stiffness:180,damping:30,mass:.8}}/></div><div className="progress-bottom">{progress===100 && stats.all ? 'All caught up — amazing work!' : 'Keep your momentum going'}<ArrowUpRight size={16}/></div></div></div>
@@ -476,14 +529,15 @@ function App() {
       </main>
     </div>
     <LayoutGroup id="daymark-bottom-navigation"><nav className="bottom-nav" aria-label="Mobile task navigation">
-      {NAV.map(item=><button key={item.id} className={`bottom-nav-item ${view===item.id?'active':''}`} aria-current={view===item.id?'page':undefined} onClick={()=>navigate(item.id)}>
+      {NAV.filter(item=>item.id!=='completed').map(item=><button key={item.id} className={`bottom-nav-item ${view===item.id?'active':''}`} aria-current={view===item.id?'page':undefined} onClick={()=>navigate(item.id)}>
         <span className="bottom-nav-icon">{view===item.id && (lessMotion ? <span className="v04-nav-pill"/> : <motion.span layoutId="daymark-tab-pill" className="v04-nav-pill" transition={SPRING}/>)}
           <item.icon className="v04-nav-icon" size={22}/>
         </span>
         <span>{item.label==='All tasks'?'Home':item.label}</span>
       </button>)}
     </nav></LayoutGroup>
-    <motion.button className="mobile-fab v04-fab" aria-label="Create new task" whileTap={lessMotion?undefined:{scale:.88,rotate:-7}} transition={SPRING} onClick={()=>opening(view==='today'?today:null)}><Plus size={27}/></motion.button>
+    <ExpressiveFabMenu onNewTask={()=>opening(view==='today'?today:null)} onQuickNote={openQuickNote} onNotes={()=>navigate('notes')} feel={feel} reducedMotion={lessMotion}/>
+    <AnimatePresence>{noteEditor && <QuickNoteEditor key={noteEditor.id} note={noteEditor} onChange={updateNote} onClose={()=>setNoteEditor(null)} onPin={()=>updateNote({...noteEditor,pinned:!noteEditor.pinned})} feel={feel} reducedMotion={lessMotion}/>}</AnimatePresence>
     <AnimatePresence>{modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} busy={busy} reducedMotion={lessMotion} feel={feel} onSave={saveTask} onClose={()=>!busy&&setModal(null)}/>}</AnimatePresence>
     <AnimatePresence>{toast && <motion.div key={toast} role="status" className="toast v04-toast" initial={lessMotion?false:{opacity:0,y:16,scale:.94}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:8,scale:.98}} transition={lessMotion?{duration:.05}:SPRING}><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={15}/></button></motion.div>}</AnimatePresence>
   </div></MotionConfig>

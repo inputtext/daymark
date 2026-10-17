@@ -1,0 +1,51 @@
+import { useMemo, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { FileText, Plus, Search, Pin, PinOff, Trash2, PencilLine, Sparkles, StickyNote } from 'lucide-react'
+import { sortedNotes } from '../lib/notes.js'
+import { SPRING } from '../lib/gestures.js'
+
+export default function NotesWorkspace({notes, onNew, onOpen, onPin, onDelete, feel, reducedMotion=false}) {
+  const [search, setSearch] = useState('')
+  const visible = useMemo(() => sortedNotes(notes,search),[notes,search])
+  const pinnedCount = notes.filter(n=>n.pinned).length
+  return <section className="notes-workspace" aria-label="Your notes">
+    <header className="notes-overview">
+      <div className="notes-overview-copy">
+        <span className="notes-eyebrow"><Sparkles size={14}/> THOUGHTS WORTH KEEPING</span>
+        <h2>A place for every little thought.</h2>
+        <p>Capture ideas in seconds. Notes are saved instantly on this device, even when you're offline.</p>
+        <div className="notes-stats"><span><StickyNote size={15}/>{notes.length} notes</span><span><Pin size={15}/>{pinnedCount} pinned</span></div>
+      </div>
+      <motion.button type="button" className="notes-overview-create" whileTap={reducedMotion?undefined:{scale:.94}}
+        onClick={()=>{feel?.('action');onNew()}}><Plus size={18}/> Quick note</motion.button>
+      <span className="notes-overview-glow" aria-hidden="true">✳</span>
+    </header>
+    <div className="notes-toolbar">
+      <label className="notes-search"><Search size={19}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search your notes" aria-label="Search notes"/></label>
+      <span>{visible.length} showing</span>
+    </div>
+    {visible.length ? <motion.div layout={!reducedMotion} className="notes-grid">
+      <AnimatePresence initial={false}>
+        {visible.map((note,index)=><motion.article layout={!reducedMotion} key={note.id}
+          className={'note-card'+(note.pinned?' is-pinned':'')}
+          initial={reducedMotion?false:{opacity:0,y:16,scale:.96}}
+          animate={{opacity:1,y:0,scale:1}} exit={reducedMotion?{opacity:0}:{opacity:0,scale:.94}}
+          transition={reducedMotion?{duration:0}:{...SPRING,delay:Math.min(index*.025,.13)}}>
+          <button type="button" className="note-card-main" onClick={()=>{feel?.('selection');onOpen(note)}}
+            aria-label={'Edit note: '+(note.title||note.body.slice(0,40)||'Untitled note')}>
+            <span className="note-card-stamp"><FileText size={17}/>{note.pinned&&<Pin size={13}/>}</span>
+            <strong>{note.title.trim()||'Untitled note'}</strong>
+            <p>{note.body.trim()||'Add details to this note.'}</p>
+            <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</time>
+          </button>
+          <div className="note-card-actions">
+            <button type="button" aria-label={(note.pinned?'Unpin ':'Pin ')+(note.title||'note')}
+              onClick={()=>{feel?.('selection');onPin(note.id)}}>{note.pinned?<PinOff size={17}/>:<Pin size={17}/>}</button>
+            <button type="button" aria-label={'Delete '+(note.title||'note')} onClick={()=>onDelete(note)}><Trash2 size={17}/></button>
+          </div>
+        </motion.article>)}
+      </AnimatePresence>
+    </motion.div> : <div className="notes-empty"><span><PencilLine size={30}/></span><h3>{search?'No matching notes':'Your next idea starts here.'}</h3><p>{search?'Try a different search term.':'Tap Quick note or swipe left on the floating + button to capture a thought instantly.'}</p>{!search&&<button type="button" onClick={onNew}><Plus size={17}/> Write a note</button>}</div>}
+    <p className="notes-local-footnote">Offline-first · Stored locally in this app on this device · No cloud sync yet</p>
+  </section>
+}
