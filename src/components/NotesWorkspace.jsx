@@ -17,7 +17,7 @@ export default function NotesWorkspace({notes, onNew, onOpen, onPin, onDelete, f
         <div className="notes-stats"><span><StickyNote size={15}/>{notes.length} notes</span><span><Pin size={15}/>{pinnedCount} pinned</span></div>
       </div>
       <motion.button type="button" className="notes-overview-create" whileTap={reducedMotion?undefined:{scale:.94}}
-        onClick={()=>{feel?.('action');onNew()}}><Plus size={18}/> Quick note</motion.button>
+        onClick={onNew}><Plus size={18}/> Quick note</motion.button>
       <span className="notes-overview-glow" aria-hidden="true">✳</span>
     </header>
     <div className="notes-toolbar">
@@ -31,7 +31,7 @@ export default function NotesWorkspace({notes, onNew, onOpen, onPin, onDelete, f
           initial={reducedMotion?false:{opacity:0,y:16,scale:.96}}
           animate={{opacity:1,y:0,scale:1}} exit={reducedMotion?{opacity:0}:{opacity:0,scale:.94}}
           transition={reducedMotion?{duration:0}:{...SPRING,delay:Math.min(index*.025,.13)}}>
-          <button type="button" className="note-card-main" onClick={()=>{feel?.('selection');onOpen(note)}}
+          <button type="button" className="note-card-main" onClick={()=>onOpen(note)}
             aria-label={'Edit note: '+(note.title||note.body.slice(0,40)||'Untitled note')}>
             <span className="note-card-stamp"><FileText size={17}/>{note.pinned&&<Pin size={13}/>}</span>
             <strong>{note.title.trim()||'Untitled note'}</strong>
@@ -40,7 +40,7 @@ export default function NotesWorkspace({notes, onNew, onOpen, onPin, onDelete, f
           </button>
           <div className="note-card-actions">
             <button type="button" aria-label={(note.pinned?'Unpin ':'Pin ')+(note.title||'note')}
-              onClick={()=>{feel?.('selection');onPin(note.id)}}>{note.pinned?<PinOff size={17}/>:<Pin size={17}/>}</button>
+              onClick={()=>onPin(note.id)}>{note.pinned?<PinOff size={17}/>:<Pin size={17}/>}</button>
             <button type="button" aria-label={'Delete '+(note.title||'note')} onClick={()=>onDelete(note)}><Trash2 size={17}/></button>
           </div>
         </motion.article>)}

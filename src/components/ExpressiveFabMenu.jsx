@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Plus, X, ListTodo, NotebookPen, StickyNote } from 'lucide-react'
+import { Plus, ListTodo, NotebookPen, StickyNote } from 'lucide-react'
 import { fabGesture } from '../lib/notes.js'
 import { SPRING } from '../lib/gestures.js'
 
@@ -24,15 +24,18 @@ export default function ExpressiveFabMenu({onNewTask,onQuickNote,onNotes,feel,re
     document.addEventListener('keydown',key)
     return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',key)}
   },[open])
-  const choose = fn => {setOpen(false);feel?.('action');fn()}
+  const choose = fn => {setOpen(false);fn()}
   const start = e => {
     if (e.pointerType==='mouse'&&e.button!==0)return
     pointer.current={id:e.pointerId,x:e.clientX,y:e.clientY}
+    // Keep receiving pointerup after the thumb moves outside the FAB.
+    try {e.currentTarget.setPointerCapture(e.pointerId)} catch { /* OS took gesture */ }
   }
   const release = e => {
     const p=pointer.current
     pointer.current=null
     if(!p||p.id!==e.pointerId)return
+    try {if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId)} catch { /* already released */ }
     const outcome=fabGesture(e.clientX-p.x,e.clientY-p.y)
     if(outcome==='tap')return
     suppressClick.current=true
