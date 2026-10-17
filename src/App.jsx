@@ -150,7 +150,7 @@ function AuthScreen({ onDemo, onAuth, notify }) {
   </div>
 }
 
-function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion, feel }) {
+function TaskModal({ task, initialDue, onClose, onSave, onDelete, busy, reducedMotion, feel }) {
   const [title, setTitle] = useState(task?.title || '')
   const [notes, setNotes] = useState(task?.notes || '')
   const [dueDate, setDueDate] = useState(task?.due_date || initialDue || '')
@@ -203,7 +203,14 @@ function TaskModal({ task, initialDue, onClose, onSave, busy, reducedMotion, fee
           <span><strong>Remind me at this time</strong>
           <small>{checkingReminder?'Checking saved reminder…':!dueDate||!dueTime?'Choose a date and time first':'Local Android notification · Approximate delivery · No Island permission needed'}</small></span>
         </label>}
-        <div className="modal-actions"><button type="button" className="button-cancel" onClick={onClose}>Cancel</button><button className="button-primary" type="submit" disabled={busy||checkingReminder}>{busy ? <LoaderCircle size={17} className="spin"/> : <Plus size={17}/>} {task ? 'Save changes' : 'Add task'}</button></div>
+        <div className="modal-actions">
+          {task&&<button type="button" className="task-modal-delete" disabled={busy}
+            aria-label={'Delete task '+task.title} onClick={()=>void onDelete(task)}>
+            <Trash2 size={17}/> Delete task
+          </button>}
+          <button type="button" className="button-cancel" disabled={busy} onClick={onClose}>Cancel</button>
+          <button className="button-primary" type="submit" disabled={busy||checkingReminder}>{busy ? <LoaderCircle size={17} className="spin"/> : <Plus size={17}/>} {task ? 'Save changes' : 'Add task'}</button>
+        </div>
       </form>
     </motion.section>
   </motion.div>
@@ -435,17 +442,29 @@ function App() {
     notify(value ? 'Nicely done! Task completed.' : 'Task moved back to your list.')
   }
   const deleteTask = async task => {
-    if (!window.confirm(`Delete “${task.title}”? This can’t be undone.`)) return
-    if (session === 'demo') writeDemo(tasks.filter(t=>t.id!==task.id))
-    else {
-      const {error} = await insforge.database.from('tasks').delete().eq('id',task.id)
-      if (error) {notify(error.message);return}
-      await refresh()
-    }
-    void cancelTaskReminder(task.id).catch(() => {})
-    void cancelCalendarReminder(task.id).catch(() => {})
-    feel('warning')
-    notify('Task deleted')
+    if (busy) return false
+    if (!window.confirm(`Delete “${task.title}”? This can’t be undone.`)) return false
+    setBusy(true)
+    try {
+      if (session === 'demo') writeDemo(tasks.filter(t=>t.id!==task.id))
+      else {
+        const {error} = await insforge.database.from('tasks').delete().eq('id',task.id)
+        if (error) throw error
+        await refresh()
+      }
+      // Cancel both manual and date-based local notifications. Never make
+      // successful cloud deletion depend on Android permission/state.
+      void cancelTaskReminder(task.id).catch(() => {})
+      void cancelCalendarReminder(task.id).catch(() => {})
+      feel('warning')
+      notify('Task deleted')
+      setModal(current => current?.task?.id===task.id ? null : current)
+      return true
+    } catch (error) {
+      feel('error')
+      notify('Could not delete task: '+(error?.message||'Please try again'))
+      return false
+    } finally {setBusy(false)}
   }
   const remindTask = async (task, minutes) => {
     try {
@@ -563,7 +582,7 @@ function App() {
         <div className="page-heading"><div><div className="eyebrow page-eyebrow"><span className="eyebrow-line"/> A FRESH PERSPECTIVE</div><h1>{TITLES[view][0]}<span className="heading-period">.</span></h1><p>{TITLES[view][1]}</p></div><button className="button-primary heading-add" onClick={()=>view==='notes'?openQuickNote():opening(view==='today'?today:null)}><Plus size={18}/> {view==='notes'?'Quick note':'New task'}</button></div>
         <Suspense fallback={<ExpressiveLoading kind={view==='calendar'?'calendar':view==='notes'?'notes':'tasks'}/>}>
         {view==='notes' ? <NotesWorkspace notes={notes} onNew={openQuickNote} onOpen={editNote} onPin={pinNote} onDelete={deleteSavedNote} feel={feel} reducedMotion={lessMotion}/> : view==='calendar' ? <ExpressiveCalendar tasks={tasks} selected={selectedCalendarDate} onSelect={setSelectedCalendarDate}
-          onCreate={day=>setModal({due:day})} onEdit={task=>setModal({task})}
+          onCreate={day=>setModal({due:day})} onEdit={task=>setModal({task})} onDelete={deleteTask}
           onMove={rescheduleTask} feel={feel} lessMotion={lessMotion} busy={busy}/> : <>
         <div className="hero-row"><div className="hero-card"><div className="hero-copy"><span className="hero-overline"><Sparkles size={15}/> YOUR DAILY MOMENTUM</span><h2>Make room for <em>progress.</em></h2><p>You don’t have to do it all. Just take the next step.</p><button className="hero-link" onClick={()=>navigate('today')}>See today’s tasks <ArrowRight size={16}/></button></div><div className="hero-orbit ring-one"/><div className="hero-orbit ring-two"/><div className="hero-flower">✳</div></div><div className="progress-card"><div className="progress-card-top"><span>YOUR PROGRESS</span><span className="progress-icon"><CheckCheck size={19}/></span></div><div className="progress-value">{progress}<span>%</span></div><p>{stats.completed} of {stats.all} tasks complete</p><div className="progress-track"><motion.span initial={false} animate={{width:`${progress}%`}} transition={lessMotion?{duration:0}:{type:"spring",stiffness:180,damping:30,mass:.8}}/></div><div className="progress-bottom">{progress===100 && stats.all ? 'All caught up — amazing work!' : 'Keep your momentum going'}<ArrowUpRight size={16}/></div></div></div>
         <div className="stat-grid"><button className="stat-card" onClick={()=>navigate('today')}><span className="stat-icon stat-orange"><Clock3 size={18}/></span><div><span className="stat-value">{stats.today}</span><span className="stat-name">Due today & overdue</span></div><ArrowUpRight className="stat-arrow" size={18}/></button><button className="stat-card" onClick={()=>navigate('upcoming')}><span className="stat-icon stat-purple"><CalendarDays size={18}/></span><div><span className="stat-value">{stats.upcoming}</span><span className="stat-name">Coming up</span></div><ArrowUpRight className="stat-arrow" size={18}/></button><button className="stat-card" onClick={()=>navigate('completed')}><span className="stat-icon stat-green"><CheckCircle2 size={18}/></span><div><span className="stat-value">{stats.completed}</span><span className="stat-name">Tasks completed</span></div><ArrowUpRight className="stat-arrow" size={18}/></button></div>
@@ -588,7 +607,7 @@ function App() {
     </nav></LayoutGroup>
     <ExpressiveFabMenu onNewTask={()=>opening(view==='today'?today:null)} onQuickNote={openQuickNote} onNotes={()=>navigate('notes')} feel={feel} reducedMotion={lessMotion}/>
     <AnimatePresence>{noteEditor && <QuickNoteEditor key={noteEditor.id} note={noteEditor} onChange={updateNote} onClose={()=>setNoteEditor(null)} onPin={()=>updateNote({...noteEditor,pinned:!noteEditor.pinned})} feel={feel} reducedMotion={lessMotion}/>}</AnimatePresence>
-    <AnimatePresence>{modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} busy={busy} reducedMotion={lessMotion} feel={feel} onSave={saveTask} onClose={()=>!busy&&setModal(null)}/>}</AnimatePresence>
+    <AnimatePresence>{modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} busy={busy} reducedMotion={lessMotion} feel={feel} onSave={saveTask} onDelete={deleteTask} onClose={()=>!busy&&setModal(null)}/>}</AnimatePresence>
     <AnimatePresence>{toast && <motion.div key={toast} role="status" className="toast v04-toast" initial={lessMotion?false:{opacity:0,y:16,scale:.94}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:8,scale:.98}} transition={lessMotion?{duration:.05}:SPRING}><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={15}/></button></motion.div>}</AnimatePresence>
   </div></MotionConfig>
 }
