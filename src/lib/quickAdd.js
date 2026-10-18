@@ -17,7 +17,7 @@ const dateFromParts=(year,month,date)=>{
   return candidate.getFullYear()===year && candidate.getMonth()===month &&
     candidate.getDate()===date ? localISO(candidate) : null
 }
-const tidy=s=>s.replace(/\s+/g,' ').replace(/\s+([,!?])/g,'$1')
+const tidy=s=>s.replace(/\s+/g,' ').replace(/\s+([,.?])/g,'$1')
   .replace(/^[,.\s!?]+|[,.\s!?]+$/g,'').trim()
 function consume(original,match){
   return tidy(original.slice(0,match.index)+' '+original.slice(match.index+match[0].length))
