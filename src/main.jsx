@@ -27,3 +27,5 @@ import './onboarding.css'
 import './compact-auth.css'
 
 import './native-clean.css'
+
+import './smart-quick-add.css'
