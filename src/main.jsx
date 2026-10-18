@@ -23,3 +23,5 @@ import './cloud-v08.css'
 import './mobile-viewport-fix.css'
 
 import './onboarding.css'
+
+import './compact-auth.css'
