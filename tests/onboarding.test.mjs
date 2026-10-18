@@ -25,3 +25,9 @@ test('onboarding does not request permissions or access user content',()=>{
  assert.match(css,/prefers-reduced-motion:reduce/)
  assert.match(load('src/main.jsx'),/import '\.\/onboarding\.css'/)
 })
+
+test('signed-out users can replay the introduction without clearing local data',()=>{
+ assert.match(app,/onShowIntro=\{\(\)=>setOnboardingComplete\(false\)\}/)
+ assert.match(app,/See what Daymark can do/)
+ assert.match(css,/\.dm-ob-replay/)
+})
