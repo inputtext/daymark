@@ -1,5 +1,18 @@
 apply plugin: 'com.android.application'
 
+// Release signing inputs come only from the local build environment.
+// Never commit a keystore, signing passwords or private key material.
+def daymarkReleaseKeystore = System.getenv('DAYMARK_RELEASE_KEYSTORE')
+def daymarkReleaseStorePassword = System.getenv('DAYMARK_RELEASE_STORE_PASSWORD')
+def daymarkReleaseKeyAlias = System.getenv('DAYMARK_RELEASE_KEY_ALIAS')
+def daymarkReleaseKeyPassword = System.getenv('DAYMARK_RELEASE_KEY_PASSWORD')
+def daymarkReleaseSigningReady = [
+    daymarkReleaseKeystore, daymarkReleaseStorePassword,
+    daymarkReleaseKeyAlias, daymarkReleaseKeyPassword
+].every { it != null && !it.trim().isEmpty() }
+def daymarkVersionCode = (System.getenv('DAYMARK_VERSION_CODE') ?: '1').toInteger()
+def daymarkVersionName = System.getenv('DAYMARK_VERSION_NAME') ?: '1.0'
+
 android {
     namespace = "com.piyush.daymark"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +20,8 @@ android {
         applicationId "com.piyush.daymark"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode daymarkVersionCode
+        versionName daymarkVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,11 +29,36 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        daymarkRelease {
+            if (daymarkReleaseSigningReady) {
+                storeFile file(daymarkReleaseKeystore)
+                storePassword daymarkReleaseStorePassword
+                keyAlias daymarkReleaseKeyAlias
+                keyPassword daymarkReleaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
+            if (daymarkReleaseSigningReady) {
+                signingConfig signingConfigs.daymarkRelease
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+    }
+}
+
+// Never treat an unsigned APK as a distributable Daymark release.
+// CI's normal assembleDebug and local Android Studio debug builds are unaffected.
+gradle.taskGraph.whenReady { graph ->
+    if ((graph.hasTask(':app:assembleRelease') || graph.hasTask(':app:bundleRelease'))
+            && !daymarkReleaseSigningReady) {
+        throw new GradleException(
+            'Release signing is not configured. Use scripts/build-signed-apk.ps1 ' +
+            'with a private, locally stored keystore and signing credentials.'
+        )
     }
 }
 
