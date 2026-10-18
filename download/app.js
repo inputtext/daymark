@@ -46,14 +46,22 @@
       if (!response.ok) throw new Error('Release API unavailable')
       const releases = await response.json()
       if (!Array.isArray(releases)) throw new Error('Unexpected release data')
-      // Never promote a draft, prerelease, or tag without an actual APK asset.
-      const candidates = releases.filter(r => !r.draft && !r.prerelease && r.published_at)
-      const release = candidates.find(r => Array.isArray(r.assets) && r.assets.some(a =>
-        /\.apk$/i.test(a.name || '') && safeReleaseUrl(a.browser_download_url)
-      ))
+      // Stable APKs take precedence; offer clearly labeled public beta builds
+      // only when there is no stable APK yet. Drafts and unsigned/debug APKs
+      // are never offered as a release download.
+      const isReadyApk = a => /\.apk$/i.test(a.name || '') &&
+        !/(debug|unsigned|unaligned)/i.test(a.name || '') &&
+        safeReleaseUrl(a.browser_download_url)
+      const candidates = releases
+        .filter(r => !r.draft && r.published_at &&
+          Array.isArray(r.assets) && r.assets.some(isReadyApk))
+        .sort((a,b) => new Date(b.published_at) - new Date(a.published_at))
+      const release = candidates.find(r => !r.prerelease) || candidates[0]
       if (!release) { setUnavailable('No public Android APK release yet'); return }
-      const apk = release.assets.find(a => /\.apk$/i.test(a.name || '') && safeReleaseUrl(a.browser_download_url))
-      text(status, 'Official GitHub release available')
+      const apk = release.assets.find(isReadyApk)
+      text(status, release.prerelease
+        ? 'Official beta APK available · Test build'
+        : 'Official GitHub release available')
       text($('release-version'), String(release.tag_name || release.name || 'Latest'))
       text($('release-date'), fmtDate(release.published_at))
       text($('release-size'), fmtBytes(apk.size))
@@ -74,11 +82,14 @@
   }
   // The disabled button must not act like an available download.
   download.addEventListener('click', e => { if (download.classList.contains('is-disabled')) e.preventDefault() })
+  const revealElements = document.querySelectorAll('.feature-card, .step-number, .release-card')
   if ('IntersectionObserver' in window) {
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('in-view'); observer.unobserve(entry.target) } })
     }, {threshold: 0.09})
-    document.querySelectorAll('.feature-card, .step-number, .release-card').forEach(el => observer.observe(el))
+    revealElements.forEach(el => observer.observe(el))
+  } else {
+    revealElements.forEach(el => el.classList.add('in-view'))
   }
   loadRelease()
 })()
