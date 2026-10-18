@@ -28,7 +28,7 @@ Open http://localhost:4173. The live release data is fetched from the public Git
 3. With no published releases: disabled APK button and accurate no-release status.
 4. If the API is unreachable or rate limited: fallback message and official Releases link.
 5. With an official published non-prerelease release containing a signed APK: correct asset URL, version, date, size, and release notes.
-6. If a release contains no APK: do not show a fake download. A draft or prerelease is not advertised as stable.
+6. If a release contains no APK: do not show a fake download. A draft is never served; a public prerelease is explicitly labeled beta when no stable APK is available.
 7. Check links, responsive footer, external-link behavior and installation instructions.
 8. Verify `npm test`, `npm run build` and Android Gradle CI on the branch; the standalone site must not affect the app.
 
@@ -37,12 +37,12 @@ No GitHub Pages, Vercel, Netlify, DNS or production changes have been made.
 
 After approval, publish the `download/` directory through a static host such as Vercel or Netlify, or copy its contents to the GitHub Pages publishing root. **GitHub Pages cannot directly serve an arbitrary `/download` folder as a site root without an appropriate build/deployment workflow**. Publishing a separate domain/subdomain is optional.
 
-Before publicly sharing an APK, build a signed **release** APK (not a debug APK), protect the keystore, verify installation/update signatures, and upload the APK asset and release notes to a GitHub Release. The landing page will then automatically detect it without a new website deployment. Do not upload signing credentials to GitHub.
+Before publicly sharing an APK, build a signed **release** APK (not a debug APK), protect the keystore, verify installation/update signatures, and upload the APK asset and release notes to a GitHub Release. The landing page will then automatically detect it without a new website deployment. Do not upload signing credentials to GitHub. For the secure local build process see [the Android distribution guide](../docs/ANDROID_RELEASE_AND_DISTRIBUTION.md).
 
 ## Known limitations
 - Public GitHub API has unauthenticated rate limits and the page does not cache data server-side.
 - Release notes are displayed as **safe plain text**, not full GitHub Markdown formatting.
-- Only the latest 20 releases are scanned; a release must be public, non-draft, non-prerelease and contain an APK.
+- Only the latest 20 releases are scanned; an eligible release must be public, non-draft and contain an APK. Stable builds are preferred; beta downloads are labeled as test builds.
 - The site does not provide automatic Android updates or bypass sideloading warnings.
 - Phone UI is an original illustrative concept, not a claim that every screen looks identical to the app.
 - Widgets and some Android floating overlay behavior still require real-device testing.
