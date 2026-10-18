@@ -13,7 +13,7 @@ const slotFor=time=>!time?'unscheduled':time<'12:00'?'Morning':time<'17:00'?'Aft
 /** Full React/Capacitor calendar, styled after Material 3 Expressive patterns.
  * Date tiles accept mouse drag and pointer drag; all moves have button fallback.
  */
-export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onEdit,onDelete,onMove,feel,lessMotion=false,busy=false}) {
+export default function ExpressiveCalendar({nativeApp=false,tasks,selected,onSelect,onCreate,onEdit,onDelete,onMove,feel,lessMotion=false,busy=false}) {
   const [mode,setMode]=useState('month')
   const [anchor,setAnchor]=useState(monthStart(selected))
   const [dragging,setDragging]=useState(null)
@@ -43,7 +43,7 @@ export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onE
   return <div className="daymark-calendar">
     <section className="daymark-calendar-card" aria-label="Calendar planner">
       <div className="daymark-calendar-head">
-        <div><span className="daymark-calendar-eyebrow"><Sparkles size={15}/> YOUR TIME, BEAUTIFULLY ORGANIZED</span><h2>{monthLabel(mode==='month'?anchor:selected)}</h2><p>Pick a date to see your day. Swipe a task for actions.</p></div>
+        <div>{!nativeApp&&<span className="daymark-calendar-eyebrow"><Sparkles size={15}/> YOUR TIME, BEAUTIFULLY ORGANIZED</span>}<h2>{monthLabel(mode==='month'?anchor:selected)}</h2>{!nativeApp&&<p>Pick a date to see your day. Swipe a task for actions.</p>}</div>
         <div className="daymark-calendar-navigation"><button type="button" onClick={()=>{const d=localISO(new Date());select(d)}}>Today</button><button type="button" aria-label="Previous period" onClick={()=>go(-1)}><ChevronLeft size={20}/></button><button type="button" aria-label="Next period" onClick={()=>go(1)}><ChevronRight size={20}/></button></div>
       </div>
       <div className="daymark-calendar-modes" role="group" aria-label="Calendar view">
@@ -65,8 +65,10 @@ export default function ExpressiveCalendar({tasks,selected,onSelect,onCreate,onE
       <div className="daymark-calendar-summary"><span><CalendarDays size={17}/>{longLabel(selected)}</span><strong>{active.length} task{active.length===1?'':'s'}</strong></div>
     </section>
     <section className="daymark-timeline" aria-label="Daily task timeline">
-      <div className="daymark-timeline-head"><div><span>DAILY TIMELINE</span><h2>{longLabel(selected)}</h2></div><button className="daymark-calendar-add" type="button" onClick={()=>onCreate(selected)}><Plus size={18}/> Add task</button></div>
-      <p className="daymark-calendar-hint">Swipe a task left for Edit and Delete. Deletion always asks for confirmation. Use Move date to reschedule, or drag the handle on desktop.</p>
+      <div className="daymark-timeline-head"><div>{!nativeApp&&<span>DAILY TIMELINE</span>}<h2>{longLabel(selected)}</h2></div><button className="daymark-calendar-add" type="button" onClick={()=>onCreate(selected)}><Plus size={18}/> Add task</button></div>
+      {nativeApp
+        ? <details className="native-calendar-help"><summary>Calendar actions</summary><p>Swipe a task left for Edit or Delete. Use Move date to reschedule.</p></details>
+        : <p className="daymark-calendar-hint">Swipe a task left for Edit and Delete. Deletion always asks for confirmation. Use Move date to reschedule, or drag the handle on desktop.</p>}
       <AnimatePresence mode="wait">
         <motion.div key={selected} initial={lessMotion?false:{opacity:0,y:12}} animate={{opacity:1,y:0}} exit={lessMotion?{opacity:0}:{opacity:0,y:-8}} transition={lessMotion?{duration:0}:{duration:.22}}>
           {active.length===0&&<div className="daymark-timeline-empty"><CalendarClock size={29}/><h3>Room for something good.</h3><p>Nothing scheduled for this day yet.</p><button type="button" onClick={()=>onCreate(selected)}><Plus size={16}/> Plan a task</button></div>}
