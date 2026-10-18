@@ -11,6 +11,7 @@ import { parseSmartTask } from './lib/smartTask.js'
 import { hapticFeedback, normalizeHapticLevel } from './lib/haptics.js'
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core'
 import { App as NativeApp } from '@capacitor/app'
+import Onboarding, { hasSeenOnboarding, markOnboardingSeen } from './components/Onboarding.jsx'
 import { Network } from '@capacitor/network'
 import { queueNoteChanges, syncCloudNotes, readNotesOutbox } from './lib/cloudNotes.js'
 import { biometricLockEnabled, setBiometricLockEnabled, checkBiometricAvailability, verifyBiometricLock, isNativeBiometricDevice } from './lib/biometricLock.js'
@@ -70,7 +71,7 @@ function getDemo() {
   return seed
 }
 
-function AuthScreen({ onDemo, onAuth, notify }) {
+function AuthScreen({ onDemo, onAuth, onShowIntro, notify }) {
   const [tab, setTab] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -150,6 +151,7 @@ function AuthScreen({ onDemo, onAuth, notify }) {
           <div className="or-divider"><span>or take a look first</span></div>
         </> : <div className="demo-note"><ShieldCheck size={18}/><span>Preview mode is ready. Connect InsForge to enable secure accounts and cloud sync.</span></div>}
         <button type="button" className="button-demo" onClick={onDemo}><Sparkles size={18}/> Explore the demo <ArrowUpRight size={17}/></button>
+        <button type="button" className="dm-ob-replay" onClick={onShowIntro}><Sparkles size={15}/> See what Daymark can do <ArrowRight size={15}/></button>
         <p className="auth-footnote"><ShieldCheck size={14}/> {INSFORGE_CONFIGURED ? 'Your tasks are private to your account.' : 'Demo tasks stay in this browser.'}</p>
       </div>
       <span className="welcome-bottom-right">Build better days, gently. ✦</span>
@@ -225,6 +227,7 @@ function TaskModal({ task, initialDue, onClose, onSave, onDelete, busy, reducedM
 
 function App() {
   const [session, setSession] = useState('loading') // loading | guest | demo | cloud
+  const [onboardingComplete,setOnboardingComplete]=useState(()=>hasSeenOnboarding(localStorage))
   const [user, setUser] = useState(null)
   const [tasks, setTasks] = useState([])
   const [view, setView] = useState('inbox')
@@ -360,7 +363,7 @@ function App() {
     if (!insforge) { setSession('guest'); return }
     insforge.auth.getCurrentUser().then(({data, error}) => {
       if (!alive) return
-      if (!error && data?.user) {setUser(data.user);setSession('cloud')}
+      if (!error && data?.user) {markOnboardingSeen(localStorage);setOnboardingComplete(true);setUser(data.user);setSession('cloud')}
       else setSession('guest')
     }).catch(() => {if (alive) setSession('guest')})
     return () => {alive = false}
@@ -472,7 +475,7 @@ function App() {
   }, [modal, noteEditor, session, noteScope, unlockGranted, user?.id])
 
   const startDemo = () => { feel('success');setTasks(getDemo());setSession('demo');setView('inbox') }
-  const authenticated = person => {setUser(person);setUnlockGranted(false);setSession('cloud');setView('inbox')}
+  const authenticated = person => {markOnboardingSeen(localStorage);setOnboardingComplete(true);setUser(person);setUnlockGranted(false);setSession('cloud');setView('inbox')}
   const unlockWithBiometric = async()=>{
     if(biometricBusy)return
     authPromptActive.current=true
@@ -644,7 +647,8 @@ function App() {
   const currentDate = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})
 
   if (session === 'loading') return <ExpressiveLoading kind="app" fullScreen/>
-  if (session === 'guest') return <AuthScreen onDemo={startDemo} onAuth={authenticated} notify={notify}/>
+  if (session === 'guest' && !onboardingComplete) return <Onboarding feel={feel} reducedMotion={lessMotion} onComplete={()=>{markOnboardingSeen(localStorage);setOnboardingComplete(true)}}/>
+  if (session === 'guest') return <AuthScreen onDemo={startDemo} onAuth={authenticated} onShowIntro={()=>setOnboardingComplete(false)} notify={notify}/>
   if(session==='cloud'&&biometricLockEnabled(localStorage,user?.id)&&!unlockGranted) return <div className="daymark-lock-screen" role="main" aria-label="Daymark app locked"><div className="daymark-lock-card"><div className="daymark-lock-badge"><Fingerprint size={36}/></div><span className="modal-kicker">PRIVATE WORKSPACE</span><h1>Daymark is locked.</h1><p>Confirm your fingerprint or device screen lock to open your workspace.</p><button className="daymark-lock-unlock" type="button" disabled={biometricBusy} onClick={()=>void unlockWithBiometric()}><Fingerprint size={20}/>{biometricBusy?'Checking…':'Unlock Daymark'}</button>{lockError&&<p role="alert" className="daymark-lock-error">{lockError}</p>}<button className="daymark-lock-exit" type="button" disabled={biometricBusy} onClick={()=>void signOut()}>Sign out instead</button></div></div>
 
   const renderTask = (task, index) => {
