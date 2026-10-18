@@ -205,7 +205,6 @@ function App() {
     const {data, error} = await insforge.database.from('tasks')
       .select('id,user_id,title,notes,due_date,priority,is_complete,created_at,updated_at')
       .order('created_at', {ascending:false})
-      .limit(1000)
     if (error) notify(error.message || 'Could not load tasks. Check the database migration.')
     else setTasks(data || [])
     setLoadingTasks(false)
