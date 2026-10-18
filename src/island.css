@@ -92,3 +92,95 @@
 .island-diagnostics p{font-size:10px;margin:0;overflow-wrap:anywhere}
 .island-diagnostics p strong{color:var(--ink)}
 .island-diagnostics .island-diagnostics-note{margin-top:5px;font-size:10px}
+
+
+/* Daymark Island Motion Studio: four original expressive spring profiles. */
+.island-motion-studio{
+  display:grid;gap:13px;padding:15px;border-radius:25px;
+  background:var(--surface);border:1px solid var(--line);min-width:0;
+}
+.island-motion-heading>div{display:grid;gap:6px}
+.island-motion-kicker{display:flex;align-items:center;gap:7px;color:var(--accent);font-size:10px;font-weight:900;letter-spacing:1.1px}
+.island-motion-heading strong{font-size:15px;letter-spacing:-.4px;color:var(--ink)}
+.island-motion-heading p{margin:0;font-size:11px;line-height:1.5;color:var(--muted)}
+.island-motion-demo{
+  position:relative;isolation:isolate;min-height:140px;
+  border-radius:30px 46px 32px 45px;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:23px 13px 25px;gap:15px;overflow:hidden;
+  background:linear-gradient(135deg,var(--ex-tertiary),var(--ex-tonal) 62%,var(--field));
+}
+.island-motion-halo{
+  position:absolute;z-index:-1;width:180px;height:180px;top:-72px;right:-24px;
+  border-radius:50%;border:1px solid #ffffffa3;
+  box-shadow:0 0 0 29px #ffffff18,0 0 0 60px #ffffff16;
+  pointer-events:none
+}
+.island-motion-demo-pill{
+  width:min(100%,290px);min-height:63px;display:flex;align-items:center;gap:11px;
+  border-radius:25px 32px 27px 30px;padding:10px 12px;
+  background:#1b1928;color:#fefbff;
+  box-shadow:0 14px 26px #342a4842;
+  transform-origin:50% 0;
+}
+.island-motion-demo-bloom{border-radius:36px 28px 39px 30px}
+.island-motion-demo-elastic{border-radius:31px 23px 33px 26px}
+.island-motion-demo-glide{border-radius:999px}
+.island-motion-demo-symbol{
+  flex:none;width:37px;height:37px;display:grid;place-items:center;
+  border-radius:14px;background:#4c385b;color:#e8c3ed;
+}
+.island-motion-demo-pill>span:nth-child(2){min-width:0;flex:1;display:grid;gap:5px}
+.island-motion-demo-pill small{
+  font-size:8px;font-weight:900;letter-spacing:1.4px;color:#cbb8d7
+}
+.island-motion-demo-pill strong{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:12px;color:#fff
+}
+.island-motion-demo-pill>svg:last-child{flex:none;color:#cbb9dd}
+.island-motion-demo-caption{
+  font-size:11px;font-weight:800;color:var(--ex-tertiary-ink);text-align:center
+}
+.island-motion-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.island-motion-studio .island-motion-option{
+  border:1px solid var(--line);border-radius:24px;
+  background:var(--field);color:var(--ink);
+  text-align:left;padding:12px;display:flex;flex-direction:column;gap:10px;
+  min-height:117px;min-width:0;align-items:flex-start;
+  cursor:pointer;position:relative;
+  transition:border-color .2s,background .2s,transform .2s;
+}
+.island-motion-studio .island-motion-option:hover:not(:disabled){transform:translateY(-2px);border-color:var(--accent)}
+.island-motion-studio .island-motion-option.is-selected{
+  border:2px solid var(--accent);
+  padding:11px;
+  background:var(--ex-tonal);color:var(--ex-on-tonal);
+}
+.island-motion-studio .island-motion-option:disabled{opacity:.55;cursor:default}
+.island-motion-option-icon{
+  flex:none;width:34px;height:34px;display:grid;place-items:center;
+  border-radius:13px;background:var(--surface);color:var(--accent)
+}
+.island-motion-option>span:nth-child(2){min-width:0;display:grid;gap:4px}
+.island-motion-option strong{font-size:12px;letter-spacing:-.2px}
+.island-motion-option small{font-size:10px;line-height:1.45;color:var(--muted)}
+.island-motion-option-check{position:absolute;right:12px;top:12px;color:var(--accent)}
+.island-motion-studio .island-motion-replay{
+  min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;
+  border:1px solid var(--line);border-radius:999px;background:var(--field);
+  color:var(--ink);font-weight:800;font-size:12px;padding:9px 15px;
+  cursor:pointer;
+}
+.island-motion-help{margin:0!important;color:var(--muted);font-size:10px!important;line-height:1.6!important}
+.island-motion-help strong{color:var(--ink)}
+.island-motion-studio button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+@media(max-width:390px){
+  .island-motion-options{gap:7px}
+  .island-motion-studio .island-motion-option{padding:9px;min-height:112px;border-radius:19px}
+  .island-motion-studio .island-motion-option.is-selected{padding:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .island-motion-studio button{transition:none!important}
+}
+:root[data-less-motion="true"] .island-motion-studio button{transition:none!important}

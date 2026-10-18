@@ -36,6 +36,8 @@ public class DaymarkIslandPlugin extends Plugin {
                     == PackageManager.PERMISSION_GRANTED);
         state.put("scheduledCount", IslandReminders.scheduledCount(getContext()));
         state.put("hapticLevel", IslandReminders.hapticLevel(getContext()));
+        state.put("motionStyle", IslandReminders.motionStyle(getContext()));
+        state.put("motionReduced", IslandReminders.motionReduced(getContext()));
         state.put("delivery", "inexact");
         state.put("lastDelivery", IslandReminders.lastDelivery(getContext()));
         state.put("lastOverlay", IslandReminders.lastOverlay(getContext()));
@@ -65,6 +67,23 @@ public class DaymarkIslandPlugin extends Plugin {
             IslandReminders.setHapticLevel(getContext(), call.getString("level", "balanced"));
             call.resolve(status());
         } catch (RuntimeException invalid) { call.reject(invalid.getMessage()); }
+    }
+
+    @PluginMethod public void setMotionStyle(PluginCall call) {
+        try {
+            String style = call.getString("style");
+            IslandReminders.setMotionStyle(getContext(), style);
+            call.resolve(status());
+        } catch (IllegalArgumentException invalid) {
+            call.reject(invalid.getMessage());
+        }
+    }
+
+    @PluginMethod public void syncReducedMotion(PluginCall call) {
+        Boolean reduced = call.getBoolean("reduced");
+        if (reduced == null) { call.reject("reduced must be true or false"); return; }
+        IslandReminders.setMotionReduced(getContext(), reduced);
+        call.resolve(status());
     }
 
     @PluginMethod public void setPlacement(PluginCall call) {

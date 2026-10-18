@@ -1,5 +1,7 @@
 package com.piyush.daymark;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -20,10 +22,11 @@ import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
-import android.view.animation.Interpolator;
+
 import android.view.View;
 import android.view.WindowManager;
-import android.view.animation.OvershootInterpolator;
+import android.view.ViewGroup;
+
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -54,6 +57,9 @@ public class DaymarkIslandService extends Service {
     private float swipeStartY;
     private GradientDrawable islandShape;
     private ValueAnimator morphAnimator;
+    private ValueAnimator entryAnimator;
+    private ValueAnimator exitAnimator;
+    private TextView islandGlyph;
     private String currentId;
     private String currentTitle;
 
@@ -168,7 +174,7 @@ public class DaymarkIslandService extends Service {
             params.layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         }
-        params.windowAnimations = 0;
+        params.windowAnimations = 0; // Our native spring controls motion, not system window animations.
 
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -225,6 +231,7 @@ public class DaymarkIslandService extends Service {
         compact.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView icon = label("✦", 21, Color.rgb(192, 171, 255), true);
+        islandGlyph = icon;
         icon.setGravity(Gravity.CENTER);
         icon.setBackground(rounded(Color.rgb(56, 46, 80), 13));
         compact.addView(icon, new LinearLayout.LayoutParams(dp(40), dp(40)));
@@ -271,12 +278,10 @@ public class DaymarkIslandService extends Service {
 
         windowManager.addView(root, params);
         root.setPivotY(0f);
-        root.setScaleX(.90f);
-        root.setScaleY(.88f);
-        root.setAlpha(0f);
-        root.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(340)
-                .setInterpolator(springCurve()).start();
+        root.setPivotX(compactWidth * .5f);
         expanded = false;
+        closing = false;
+        animateEntrance();
         scheduleTimeout();
     }
 
@@ -303,30 +308,199 @@ public class DaymarkIslandService extends Service {
         view.performHapticFeedback(effect);
     }
 
-    // A damped spring curve with a small, intentional overshoot. The island is
-    // an Android View, so this runs natively without a WebView animation loop.
-    private Interpolator springCurve() {
-        return input -> (float) (1d - Math.exp(-7.5d * input)
-                * Math.cos(11d * input));
+    private IslandMotion.Profile profile() {
+        return IslandMotion.forStyle(IslandReminders.motionStyle(this));
     }
 
-    private void animateMorph(int targetWidth, int targetRadius) {
-        if (root == null || windowManager == null || params == null) return;
+    private boolean reduced() {
+        return IslandMotion.reduceMotion(this);
+    }
+
+    private int maximumWidth() {
+        // Keep native overlay content inside its device's usable display,
+        // independent of camera cutout shape or phone manufacturer.
+        return Math.max(dp(180), getResources().getDisplayMetrics().widthPixels - dp(28));
+    }
+
+    private int fitWidth(int width) {
+        return Math.min(maximumWidth(), Math.max(dp(180), width));
+    }
+
+    private void updateOverlayWidth(int width) {
+        if (root == null || params == null || windowManager == null) return;
+        int fitted = fitWidth(width);
+        if (params.width == fitted) return;
+        params.width = fitted;
+        try { windowManager.updateViewLayout(root, params); }
+        catch (IllegalArgumentException ignored) { /* already dismissed */ }
+    }
+
+    private int measureDetails(int width) {
+        if (expandedDetails == null || root == null) return 0;
+        ViewGroup.LayoutParams layout = expandedDetails.getLayoutParams();
+        int original = layout.height;
+        layout.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+        expandedDetails.setLayoutParams(layout);
+        int contentWidth = Math.max(dp(120),
+                fitWidth(width) - root.getPaddingLeft() - root.getPaddingRight());
+        expandedDetails.measure(
+                View.MeasureSpec.makeMeasureSpec(contentWidth, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        int measured = expandedDetails.getMeasuredHeight();
+        layout.height = original;
+        expandedDetails.setLayoutParams(layout);
+        return measured;
+    }
+
+    private void detailsHeight(int height) {
+        if (expandedDetails == null) return;
+        ViewGroup.LayoutParams layout = expandedDetails.getLayoutParams();
+        int next = Math.max(0, height);
+        if (layout.height == next) return;
+        layout.height = next;
+        expandedDetails.setLayoutParams(layout);
+    }
+
+    private void animateEntrance() {
+        if (root == null) return;
+        final IslandMotion.Profile motion = profile();
+        if (entryAnimator != null) entryAnimator.cancel();
+        if (reduced()) {
+            root.setScaleX(1f);
+            root.setScaleY(1f);
+            root.setAlpha(1f);
+            root.setTranslationY(0f);
+            return;
+        }
+        root.setAlpha(0f);
+        root.setScaleX(motion.openingX);
+        root.setScaleY(motion.openingY);
+        root.setTranslationY(-dp(9));
+        final float radiusStart = dp(motion.openingRadius);
+        final float radiusEnd = dp(27);
+        islandShape.setCornerRadius(radiusStart);
+        if (islandGlyph != null) islandGlyph.setRotation(-18f);
+        entryAnimator = ValueAnimator.ofFloat(0f, 1f);
+        entryAnimator.setDuration(motion.appearMs);
+        entryAnimator.addUpdateListener(animation -> {
+            if (root == null || islandShape == null) return;
+            float t = (float) animation.getAnimatedValue();
+            float spring = IslandMotion.spring(t, motion);
+            root.setScaleX(motion.openingX + (1f - motion.openingX) * spring);
+            root.setScaleY(motion.openingY + (1f - motion.openingY) * spring);
+            root.setAlpha(IslandMotion.clamp(t * 3.3f, 0f, 1f));
+            root.setTranslationY(-dp(9) * (1f - spring));
+            islandShape.setCornerRadius(Math.max(dp(12),
+                    radiusStart + (radiusEnd - radiusStart) * spring));
+            if (islandGlyph != null) islandGlyph.setRotation(-18f * (1f - spring));
+        });
+        entryAnimator.addListener(new AnimatorListenerAdapter() {
+            boolean canceled;
+            @Override public void onAnimationCancel(Animator animation) { canceled = true; }
+            @Override public void onAnimationEnd(Animator animation) {
+                if (canceled || root == null || closing) return;
+                root.setScaleX(1f);
+                root.setScaleY(1f);
+                root.setAlpha(1f);
+                root.setTranslationY(0f);
+                if (islandShape != null) islandShape.setCornerRadius(dp(27));
+                if (islandGlyph != null) islandGlyph.setRotation(0f);
+            }
+        });
+        entryAnimator.start();
+    }
+
+    private void animateMorph(int targetWidth, int targetRadius, boolean opening) {
+        if (root == null || windowManager == null || params == null
+                || expandedDetails == null || islandShape == null) return;
+        if (entryAnimator != null) {
+            entryAnimator.cancel();
+            entryAnimator = null;
+            // Settle entrance before starting the next spring, so transforms
+            // never stack and unexpectedly shrink the tap targets.
+            root.setScaleX(1f);
+            root.setScaleY(1f);
+            root.setAlpha(1f);
+            root.setTranslationY(0f);
+            if (islandGlyph != null) islandGlyph.setRotation(0f);
+        }
         if (morphAnimator != null) morphAnimator.cancel();
-        final int fromWidth = params.width;
-        final float fromRadius = islandShape.getCornerRadius();
-        final float toRadius = dp(targetRadius);
+
+        final IslandMotion.Profile motion = profile();
+        final int widthTo = fitWidth(targetWidth);
+        final int widthFrom = params.width;
+        final float radiusFrom = islandShape.getCornerRadius();
+        final float radiusTo = dp(targetRadius);
+        final boolean wasVisible = expandedDetails.getVisibility() == View.VISIBLE;
+        final int fromHeight = wasVisible ? Math.max(0, expandedDetails.getHeight()) : 0;
+        final float fromAlpha = wasVisible ? expandedDetails.getAlpha() : 0f;
+
+        if (opening) expandedDetails.setVisibility(View.VISIBLE);
+        int targetHeight = opening ? measureDetails(widthTo) : 0;
+
+        if (reduced()) {
+            expandedDetails.setAlpha(opening ? 1f : 0f);
+            if (opening) {
+                expandedDetails.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                expandedDetails.setLayoutParams(expandedDetails.getLayoutParams());
+            } else {
+                detailsHeight(0);
+                expandedDetails.setVisibility(View.GONE);
+            }
+            islandShape.setCornerRadius(radiusTo);
+            updateOverlayWidth(widthTo);
+            root.setScaleX(1f);
+            root.setScaleY(1f);
+            return;
+        }
+
+        detailsHeight(fromHeight);
         morphAnimator = ValueAnimator.ofFloat(0f, 1f);
-        morphAnimator.setDuration(410);
-        morphAnimator.setInterpolator(springCurve());
+        morphAnimator.setDuration(opening ? motion.expandMs : motion.collapseMs);
         morphAnimator.addUpdateListener(animation -> {
-            if (root == null || windowManager == null) return;
-            float progress = (float) animation.getAnimatedValue();
-            params.width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(28),
-                    Math.max(dp(180), Math.round(fromWidth + (targetWidth - fromWidth) * progress)));
-            islandShape.setCornerRadius(Math.max(0f, fromRadius + (toRadius - fromRadius) * progress));
-            try { windowManager.updateViewLayout(root, params); }
-            catch (IllegalArgumentException ignored) { /* dismissed mid-animation */ }
+            if (root == null || expandedDetails == null || islandShape == null) return;
+            float t = (float) animation.getAnimatedValue();
+            float spring = IslandMotion.spring(t, motion);
+            int width = Math.round(widthFrom + (widthTo - widthFrom) * spring);
+            updateOverlayWidth(width);
+            islandShape.setCornerRadius(Math.max(dp(12),
+                    radiusFrom + (radiusTo - radiusFrom) * spring));
+            int height = Math.round(fromHeight + (targetHeight - fromHeight) * spring);
+            detailsHeight(Math.max(0, height));
+            // The fruit-like profile briefly changes aspect ratio during
+            // expansion before releasing back into a balanced pill.
+            float squash = motion.squash * (float) Math.sin(Math.PI * t);
+            root.setScaleX(1f + squash * (opening ? 1f : -.6f));
+            root.setScaleY(1f - squash * (opening ? .75f : -.4f));
+            expandedDetails.setAlpha(IslandMotion.clamp(
+                    fromAlpha + ((opening ? 1f : 0f) - fromAlpha)
+                            * IslandMotion.clamp(spring, 0f, 1f), 0f, 1f));
+            expandedDetails.setTranslationY(-dp(9) * (1f - IslandMotion.clamp(spring, 0f, 1f))
+                    * (opening ? 1f : -1f));
+            if (islandGlyph != null) islandGlyph.setRotation((opening ? 9f : -9f)
+                    * (float) Math.sin(Math.PI * t));
+        });
+        morphAnimator.addListener(new AnimatorListenerAdapter() {
+            boolean canceled;
+            @Override public void onAnimationCancel(Animator animation) { canceled = true; }
+            @Override public void onAnimationEnd(Animator animation) {
+                if (canceled || root == null || closing || expandedDetails == null) return;
+                updateOverlayWidth(widthTo);
+                if (islandShape != null) islandShape.setCornerRadius(radiusTo);
+                root.setScaleX(1f);
+                root.setScaleY(1f);
+                if (islandGlyph != null) islandGlyph.setRotation(0f);
+                expandedDetails.setTranslationY(0f);
+                expandedDetails.setAlpha(opening ? 1f : 0f);
+                if (opening) {
+                    ViewGroup.LayoutParams layout = expandedDetails.getLayoutParams();
+                    layout.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                    expandedDetails.setLayoutParams(layout);
+                } else {
+                    detailsHeight(0);
+                    expandedDetails.setVisibility(View.GONE);
+                }
+            }
         });
         morphAnimator.start();
     }
@@ -335,14 +509,8 @@ public class DaymarkIslandService extends Service {
         if (expanded || closing || root == null || windowManager == null) return;
         expanded = true;
         touchFeedback(root, true);
-        expandedDetails.setVisibility(View.VISIBLE);
-        expandedDetails.setAlpha(0f);
-        expandedDetails.setTranslationY(-dp(10));
-        expandedDetails.animate().alpha(1f).translationY(0f)
-                .setDuration(320).setInterpolator(springCurve()).start();
-        final int target = Math.min(dp(Math.max(346, IslandReminders.placementWidth(this) + 36)),
-                getResources().getDisplayMetrics().widthPixels - dp(28));
-        animateMorph(target, 22);
+        int target = fitWidth(dp(Math.max(346, IslandReminders.placementWidth(this) + 36)));
+        animateMorph(target, 22, true);
         scheduleTimeout();
     }
 
@@ -350,22 +518,53 @@ public class DaymarkIslandService extends Service {
         if (!expanded || closing || root == null || windowManager == null) return;
         expanded = false;
         touchFeedback(root, false);
-        expandedDetails.animate().alpha(0f).translationY(-dp(8))
-                .setDuration(150).withEndAction(() -> {
-                    if (expandedDetails != null && !expanded) expandedDetails.setVisibility(View.GONE);
-                }).start();
-        int compactWidth = Math.min(dp(IslandReminders.placementWidth(this)),
-                getResources().getDisplayMetrics().widthPixels - dp(28));
-        animateMorph(compactWidth, 27);
+        int compactWidth = fitWidth(dp(IslandReminders.placementWidth(this)));
+        animateMorph(compactWidth, 27, false);
         scheduleTimeout();
     }
 
-    private void animateDismiss(int direction) {
+    private void animateExit(int direction) {
         if (closing || root == null) return;
         closing = true;
         if (dismissLater != null) handler.removeCallbacks(dismissLater);
-        root.animate().translationX(direction * dp(420)).alpha(0f).scaleX(.92f)
-                .setDuration(240).withEndAction(this::dismiss).start();
+        dismissLater = null;
+        if (entryAnimator != null) entryAnimator.cancel();
+        if (morphAnimator != null) morphAnimator.cancel();
+        if (exitAnimator != null) exitAnimator.cancel();
+        if (reduced()) { stopSelf(); return; }
+
+        final LinearLayout view = root;
+        final IslandMotion.Profile motion = profile();
+        final float fromX = view.getTranslationX();
+        final float fromY = view.getTranslationY();
+        final float fromAlpha = view.getAlpha();
+        final float fromScaleX = view.getScaleX();
+        final float fromScaleY = view.getScaleY();
+        final float offset = direction == 0 ? 0f : dp(420) * direction;
+        exitAnimator = ValueAnimator.ofFloat(0f, 1f);
+        exitAnimator.setDuration(motion.exitMs);
+        exitAnimator.addUpdateListener(animation -> {
+            if (root != view) return;
+            float t = (float) animation.getAnimatedValue();
+            float smooth = t*t*(3f-2f*t);
+            view.setAlpha(IslandMotion.clamp(fromAlpha * (1f-smooth*1.35f),0f,1f));
+            view.setScaleX(fromScaleX + (.78f - fromScaleX)*smooth);
+            view.setScaleY(fromScaleY + (.65f - fromScaleY)*smooth);
+            view.setTranslationX(fromX + offset*smooth);
+            view.setTranslationY(fromY - (direction == 0 ? dp(13)*smooth : 0f));
+        });
+        exitAnimator.addListener(new AnimatorListenerAdapter() {
+            boolean canceled;
+            @Override public void onAnimationCancel(Animator animation) { canceled = true; }
+            @Override public void onAnimationEnd(Animator animation) {
+                if (!canceled && root == view) stopSelf();
+            }
+        });
+        exitAnimator.start();
+    }
+
+    private void animateDismiss(int direction) {
+        animateExit(direction);
     }
 
     private void snooze() {
@@ -387,12 +586,20 @@ public class DaymarkIslandService extends Service {
         dismiss();
     }
 
-    private void dismiss() { stopSelf(); }
+    private void dismiss() { animateExit(0); }
 
     private void removeOverlay() {
         if (morphAnimator != null) {
             morphAnimator.cancel();
             morphAnimator = null;
+        }
+        if (entryAnimator != null) {
+            entryAnimator.cancel();
+            entryAnimator = null;
+        }
+        if (exitAnimator != null) {
+            exitAnimator.cancel();
+            exitAnimator = null;
         }
         if (root != null) root.animate().cancel();
         if (expandedDetails != null) expandedDetails.animate().cancel();
@@ -405,6 +612,7 @@ public class DaymarkIslandService extends Service {
         root = null;
         expandedDetails = null;
         islandShape = null;
+        islandGlyph = null;
         expanded = false;
         closing = false;
     }
