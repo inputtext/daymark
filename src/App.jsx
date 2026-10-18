@@ -268,7 +268,7 @@ function App() {
     } else {
       const {error} = await insforge.database.from('tasks').update({is_complete:value}).eq('id',task.id)
       if (error) {notify(error.message);return}
-      await refresh()
+      setTasks(previous => previous.map(t => t.id === task.id ? {...t,is_complete:value,updated_at:new Date().toISOString()} : t))
     }
     notify(value ? 'Nicely done! Task completed.' : 'Task moved back to your list.')
   }
@@ -278,7 +278,7 @@ function App() {
     else {
       const {error} = await insforge.database.from('tasks').delete().eq('id',task.id)
       if (error) {notify(error.message);return}
-      await refresh()
+      setTasks(previous => previous.filter(t => t.id !== task.id))
     }
     notify('Task deleted')
   }
