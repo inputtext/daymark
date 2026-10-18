@@ -5,7 +5,7 @@ Draft stacked on v0.8.1 mobile viewport fix; no merge, backend migration, or dep
 ## New entry flow
 - Loading → InsForge checks `getCurrentUser()` → already signed in: existing workspace / biometric app lock.
 - Signed out and first launch: four-stage interactive onboarding.
-- **Skip** or **Get started** persists only `daymark:onboarding:v1=done` in local storage and opens the existing InsForge Sign in / Create account screen.
+- Finishing all four screens by **Get started** persists only `daymark:onboarding:v1=done` in local storage and opens the existing InsForge Sign in / Create account screen.
 - Users who completed onboarding or previously signed in see the existing auth screen directly after signing out.
 - **Explore demo** remains on the existing auth screen. No account or backend changes.
 - UI components are original React + motion/CSS implementations based on Material 3 design patterns (filled/tonal buttons, cards, chips, progress indicator, rounded shapes), not imported native Compose components or website screenshots.
@@ -17,21 +17,21 @@ Draft stacked on v0.8.1 mobile viewport fix; no merge, backend migration, or dep
 4. Reminders & optional app lock — notification, fingerprint/device PIN privacy.
 
 ## Motion, navigation and accessibility
-- Manual Continue / Back / Skip, tappable progress indicators, left/right arrow keys and horizontal swipes.
+- Mandatory four-step tour: no Skip, no progress-bar jump. Continue / Back, passive progress indicators, left/right arrow keys and adjacent horizontal swipes.
 - Spring entrance, petal/orbit animation, floating cards. Respects OS reduced-motion and Daymark reduced-motion setting.
 - No notifications, biometric permissions, camera, location, or cloud access requested during onboarding.
-- Good touch sizes, semantic buttons, `aria-current`, accessible skip.
+- Good touch sizes, semantic buttons and `aria-current` progress state.
 - Uses Daymark's theme variables, with responsive design for 320px to tablet/desktop, native Android safe-area padding, avoids lateral overflow.
 
 ## Manual QA
-1. Fresh `localStorage` or app installation, without session: see Welcome first. Advance four stages and reach existing auth.
-2. Skip from stage 1/2/3/4: auth appears immediately. Close/reopen: onboarding does not reappear.
+1. Fresh `localStorage` or app installation, without session: see Welcome first. Require all four stages before auth.
+2. There is no Skip button; progress segments cannot jump ahead. Before Get started, restarting returns to Welcome. After Get started, restarting does not repeat onboarding.
 3. Active InsForge session: skip onboarding entirely, show app lock if enabled.
 4. Sign out after authenticated app upgrade: auth screen appears, not onboarding.
 5. Offline mode and unconfigured InsForge: onboarding still works, then demo.
 6. Demo local data and existing user Notes remain untouched.
 7. Stage 2 interactive task check only changes mock UI, not saved tasks.
-8. Horizontal swipe, arrow keys, Back, stage progress taps, reduced motion and screen reader.
+8. Horizontal swipe and arrow keys advance by only one adjacent stage. Back, noninteractive progress markers, reduced motion, and screen reader.
 9. Screen widths 320/360/393/412/480/768 and desktop, Android 7–16: no sideways white strip or clipped controls.
 10. Compare light/dark palette, phone landscape, accessibility font size 150%+, keyboard focus states.
 11. Android Studio: verify app retains InsForge sign-in and does not show onboarding on every cold start.

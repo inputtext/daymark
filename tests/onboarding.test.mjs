@@ -15,7 +15,7 @@ test('first-run guest onboarding is gated after auth session resolution',()=>{
 })
 test('onboarding features four slides and required navigation patterns',()=>{
  for(const id of ["id:'welcome'","id:'tasks'","id:'notes'","id:'reminders'"])assert.ok(component.includes(id))
- for(const txt of ['Skip','Back','Get started','ArrowRight','ArrowLeft','onTouchStart','onTouchEnd','aria-current','useReducedMotion'])assert.ok(component.includes(txt))
+ for(const txt of ['Back','Get started','ArrowRight','ArrowLeft','onTouchStart','onTouchEnd','aria-current','useReducedMotion'])assert.ok(component.includes(txt))
  assert.match(component,/setChecked\(value=>!value\)/)
  assert.match(component,/daymark:onboarding:v1/)
 })
@@ -30,4 +30,12 @@ test('signed-out users can replay the introduction without clearing local data',
  assert.match(app,/onShowIntro=\{\(\)=>setOnboardingComplete\(false\)\}/)
  assert.match(app,/See what Daymark can do/)
  assert.match(css,/\.dm-ob-replay/)
+})
+
+test('mandatory first-time tour cannot be skipped or fast-forwarded via progress indicators',()=>{
+ assert.doesNotMatch(component,/dm-ob-skip|onClick=\{finish\}[^]*?Skip|Skip introduction and continue to sign in/)
+ assert.match(component,/if\(index!==last\)return;feel\?\.\('success'\);onComplete\(\)/)
+ assert.doesNotMatch(component,/onClick=\{\(\)=>go\(i\)\}/)
+ assert.match(component,/dm-ob-progress-step/)
+ assert.match(component,/YOUR FIRST STEPS/)
 })

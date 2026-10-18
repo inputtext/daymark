@@ -87,7 +87,8 @@ export default function Onboarding({onComplete,feel,reducedMotion=false}){
     const target=Math.min(last,Math.max(0,next))
     if(target!==index){feel?.('selection');setIndex(target)}
   }
-  const finish=()=>{feel?.('success');onComplete()}
+  // Complete only after the final screen; no Skip or progress-bar shortcuts.
+  const finish=()=>{if(index!==last)return;feel?.('success');onComplete()}
   const next=()=>index===last?finish():go(index+1)
   useEffect(()=>{
     const onKey=e=>{
@@ -112,7 +113,7 @@ export default function Onboarding({onComplete,feel,reducedMotion=false}){
     <div className="dm-ob-layout">
       <header className="dm-ob-header">
         <Wordmark/>
-        <button type="button" className="dm-ob-skip" onClick={finish} aria-label="Skip introduction and continue to sign in">Skip <ArrowRight size={17}/></button>
+        <span className="dm-ob-intro-label"><Sparkles size={15}/> YOUR FIRST STEPS</span>
       </header>
       <div className="dm-ob-content" onTouchStart={beginTouch} onTouchEnd={endTouch}>
         <div className="dm-ob-visual" aria-hidden={index!==1}>
@@ -135,7 +136,7 @@ export default function Onboarding({onComplete,feel,reducedMotion=false}){
           </AnimatePresence>
           {index===1&&<p className="dm-ob-hint"><CheckCircle2 size={16}/> Tap the task's checkbox above to try it.</p>}
           <div className="dm-ob-progress" aria-label={'Introduction step '+(index+1)+' of '+ONBOARDING_STAGES.length}>
-            {ONBOARDING_STAGES.map((item,i)=><button key={item.id} type="button" className={'dm-ob-progress-step'+(i===index?' is-active':'')} onClick={()=>go(i)} aria-label={'Go to introduction screen '+(i+1)+': '+item.eyebrow} aria-current={i===index?'step':undefined}><motion.span initial={false} animate={{width:i===index?'100%':i<index?'100%':'0%'}} transition={reduced?{duration:0}:SPRING}/></button>)}
+            {ONBOARDING_STAGES.map((item,i)=><span key={item.id} className={'dm-ob-progress-step'+(i===index?' is-active':'')} aria-label={'Introduction screen '+(i+1)+' of '+ONBOARDING_STAGES.length} aria-current={i===index?'step':undefined}><motion.span initial={false} animate={{width:i<=index?'100%':'0%'}} transition={reduced?{duration:0}:SPRING}/></span>)}
           </div>
           <div className="dm-ob-actions">
             {index>0?<button className="dm-ob-back" type="button" onClick={()=>go(index-1)}><ArrowLeft size={20}/> Back</button>:<span className="dm-ob-back-space" aria-hidden="true"/>}

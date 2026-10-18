@@ -23,9 +23,9 @@
 .dm-ob-logo{display:inline-flex;align-items:center;gap:10px;font-size:25px;letter-spacing:-1.3px;font-weight:900}
 .dm-ob-logo-mark{width:35px;height:35px;background:var(--ob-primary);color:var(--ob-primary-on);display:grid;place-items:center;border-radius:13px 15px 13px 15px;transform:rotate(-9deg)}
 .dm-ob-logo-mark svg{transform:rotate(9deg)}.dm-ob-logo-period{color:var(--ob-primary)}
-.dm-ob-skip{display:inline-flex;align-items:center;gap:9px;border:0;background:var(--ob-tonal);
-  color:var(--ob-tonal-on);border-radius:999px;min-height:45px;padding:0 18px;font-size:13px;font-weight:800;cursor:pointer}
-.dm-ob-skip:hover{filter:brightness(.97)}
+.dm-ob-intro-label{display:inline-flex;align-items:center;gap:7px;background:var(--ob-tonal);
+  color:var(--ob-tonal-on);border-radius:999px;min-height:38px;padding:0 13px;
+  font-size:10px;letter-spacing:.8px;font-weight:850;white-space:nowrap}
 .dm-ob-content{flex:1;display:grid;grid-template-columns:minmax(0,1.07fr) minmax(0,.93fr);align-items:center;
   gap:clamp(24px,5vw,78px);min-height:0;padding:18px 0 22px}
 .dm-ob-visual{min-width:0;width:100%;max-width:570px;justify-self:center;touch-action:pan-y}
@@ -42,7 +42,7 @@
 .dm-ob-copy p{font-size:clamp(14px,1.5vw,17px);line-height:1.65;color:var(--ob-muted);max-width:420px;margin:0}
 .dm-ob-copy .dm-ob-hint{display:flex;align-items:center;gap:7px;margin-top:13px;font-size:12px;color:var(--ob-primary);font-weight:700}
 .dm-ob-progress{display:flex;align-items:center;gap:9px;margin-top:41px;max-width:350px}
-.dm-ob-progress-step{position:relative;overflow:hidden;display:block;flex:1;min-width:0;height:7px;border:0;border-radius:999px;background:var(--ob-tonal);padding:0;cursor:pointer}
+.dm-ob-progress-step{position:relative;overflow:hidden;display:block;flex:1;min-width:0;height:7px;border:0;border-radius:999px;background:var(--ob-tonal);padding:0;cursor:default}
 .dm-ob-progress-step span{position:absolute;left:0;top:0;bottom:0;border-radius:inherit;background:var(--ob-primary)}
 .dm-ob-progress-step.is-active{height:9px}
 .dm-ob-actions{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-top:27px;max-width:435px}
@@ -220,3 +220,5 @@
   .dm-ob-shell{min-height:calc(100dvh - var(--dm-inset-top,0px))}
 }
 @media(max-width:780px) and (max-height:680px){.dm-ob-layout{padding-top:10px}}
+
+@media(max-width:380px){.dm-ob-intro-label{padding:0 9px;font-size:9px;letter-spacing:.25px}}
