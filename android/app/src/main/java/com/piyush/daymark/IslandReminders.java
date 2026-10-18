@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.provider.Settings;
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.util.Map;
@@ -28,6 +29,7 @@ public final class IslandReminders {
     static final String ACTION_FIRE = "com.piyush.daymark.island.FIRE";
     static final String ACTION_SNOOZE = "com.piyush.daymark.island.SNOOZE";
     static final String ACTION_DISMISS = "com.piyush.daymark.island.DISMISS";
+    static final String ACTION_SHOW_ISLAND = "com.piyush.daymark.island.SHOW_FROM_NOTIFICATION";
     static final String CHANNEL_REMINDERS = "daymark_reminders";
     static final String CHANNEL_OVERLAY = "daymark_island_overlay";
     private IslandReminders() {}
@@ -130,7 +132,8 @@ public final class IslandReminders {
     }
 
     static void recordOverlay(Context context, String overlay) {
-        prefs(context).edit().putString("lastOverlay", overlay).apply();
+        prefs(context).edit().putString("lastOverlay", overlay)
+                .putLong("lastOverlayAt", System.currentTimeMillis()).apply();
     }
 
     static String lastDelivery(Context context) {
@@ -139,6 +142,10 @@ public final class IslandReminders {
 
     static String lastOverlay(Context context) {
         return prefs(context).getString("lastOverlay", "No overlay attempts yet");
+    }
+
+    static long lastOverlayAt(Context context) {
+        return prefs(context).getLong("lastOverlayAt", 0L);
     }
 
     static long lastDeliveryAt(Context context) {
@@ -261,9 +268,14 @@ public final class IslandReminders {
         ensureChannels(context);
         Intent snoozeIntent = new Intent(context, IslandReminderReceiver.class)
                 .setAction(ACTION_SNOOZE).putExtra("id", id).putExtra("title", title);
-        PendingIntent snooze = PendingIntent.getBroadcast(context, notificationId(id) ^ 0x40000000,
-                snoozeIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        return notification(context, CHANNEL_REMINDERS)
+        PendingIntent snooze = PendingIntent.getBroadcast(context,
+                notificationId(id) ^ 0x40000000, snoozeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        // A user interaction with a notification is an Android exemption from
+        // some background FGS start restrictions. Keep the standard heads-up
+        // notification regardless of whether the optional overlay can open.
+        Notification.Builder builder = notification(context, CHANNEL_REMINDERS)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
                 .setContentTitle("Daymark reminder")
                 .setContentText(cleanTitle(title))
@@ -272,9 +284,23 @@ public final class IslandReminders {
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setPriority(Notification.PRIORITY_HIGH)
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
-                .addAction(android.R.drawable.ic_menu_recent_history, "Snooze 10 min", snooze)
-                .addAction(android.R.drawable.ic_menu_view, "Open Daymark", openApp(context, id))
-                .build();
+                .addAction(android.R.drawable.ic_menu_recent_history, "Snooze 10 min", snooze);
+
+        // Don't show an inert Show Island action if it is turned off or lacks
+        // permission. Swiping/tapping this user-initiated action never schedules
+        // a second reminder or cancels the existing notification.
+        if (enabled(context) && Settings.canDrawOverlays(context)) {
+            Intent showIntent = new Intent(context, IslandReminderReceiver.class)
+                    .setAction(ACTION_SHOW_ISLAND)
+                    .putExtra("id", id)
+                    .putExtra("title", cleanTitle(title));
+            PendingIntent showIsland = PendingIntent.getBroadcast(context,
+                    notificationId(id) ^ 0x20000000, showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            builder.addAction(android.R.drawable.ic_menu_view, "Show Island", showIsland);
+        }
+        return builder.addAction(android.R.drawable.ic_menu_view,
+                "Open Daymark", openApp(context, id)).build();
     }
 
     static boolean notifyDue(Context context, String id, String title) {

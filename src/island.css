@@ -184,3 +184,9 @@
   .island-motion-studio button{transition:none!important}
 }
 :root[data-less-motion="true"] .island-motion-studio button{transition:none!important}
+
+/* v0.8.5: explain dual delivery without interfering with Island motion. */
+.island-dual-delivery{padding:13px 15px;border-radius:19px;background:var(--ex-tonal);border:1px solid var(--line);color:var(--ex-on-tonal)}
+.island-dual-delivery-title{display:flex;align-items:center;gap:10px;font-size:12px}
+.island-dual-delivery-title svg{flex:none}
+.island-dual-delivery p{margin:6px 0 0!important;color:var(--ex-on-tonal)!important;font-size:11px!important;line-height:1.6!important}

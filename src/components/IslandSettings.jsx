@@ -75,7 +75,7 @@ export default function IslandSettings({ notify, feel, reducedMotion=false }) {
         <p>Floating, Material Expressive-inspired reminders for Android.</p></div>
     </div>
     <div className="island-setting-row">
-      <div><strong>Floating Island</strong><p>{supported ? 'Only appears for previews and due reminders, then disappears.' : 'Install the Android version to enable overlays.'}</p></div>
+      <div><strong>Floating Island</strong><p>{supported ? 'Optional floating reminder alongside the normal Android notification.' : 'Install the Android version to enable overlays.'}</p></div>
       <button type="button" role="switch" aria-label="Enable floating Daymark Island" aria-checked={enabled}
         className={'island-switch' + (enabled ? ' is-on' : '')}
         disabled={!supported || busy}
@@ -83,6 +83,16 @@ export default function IslandSettings({ notify, feel, reducedMotion=false }) {
           !enabled ? 'Island enabled. Grant Display over other apps to see it.' : 'Island off. Standard notifications are unaffected.')}>
         <span/>
       </button>
+    </div>
+    <div className="island-dual-delivery" role="status">
+      <div className="island-dual-delivery-title"><BellRing size={18}/><strong>Normal notification + floating Island</strong></div>
+      <p>{!supported
+        ? 'Install Daymark on Android to test both notification types.'
+        : !enabled
+          ? 'Regular task notifications are already active. Enable Floating Island to add a second animated reminder.'
+          : !status?.overlayGranted
+            ? 'Regular notifications still work. Allow Display over other apps to enable floating Island reminders.'
+            : 'Daymark posts the normal reminder and also tries to open the Island automatically. Some Android versions block background overlays; in that case expand the notification and tap Show Island to open it manually.'}</p>
     </div>
     <div className="island-permission-grid">
       <div className="island-permission">
@@ -186,7 +196,7 @@ export default function IslandSettings({ notify, feel, reducedMotion=false }) {
         <Eye size={16}/> Preview Island
       </button>
       <button type="button" className="island-test-button" disabled={!supported || busy}
-        onClick={() => void attempt(() => scheduleIslandTest(1), 'Test scheduled for approximately 1 minute from now. Android may deliver it later.')}>
+        onClick={() => void attempt(() => scheduleIslandTest(1), 'Test reminder scheduled. The normal notification should appear. If the Island does not open automatically, expand the notification and tap Show Island.')}>
         <Clock3 size={16}/> Test reminder · ~1 min
       </button>
     </div>
@@ -199,10 +209,11 @@ export default function IslandSettings({ notify, feel, reducedMotion=false }) {
         <button type="button" disabled={busy} onClick={() => void refresh()}>Refresh status</button>
       </div>
       <p><strong>Last reminder:</strong> {status?.lastDelivery ?? 'Not available'}</p>
-      <p><strong>Last island attempt:</strong> {status?.lastOverlay ?? 'Not available'}</p>
+      <p><strong>Last Island status:</strong> {status?.lastOverlay ?? 'Not available'}</p>
+      <p><strong>Last Island attempt time:</strong> {status?.lastOverlayAt ? new Date(status.lastOverlayAt).toLocaleString() : 'Not yet'}</p>
       <p><strong>Last delivery time:</strong> {status?.lastDeliveryAt ? new Date(status.lastDeliveryAt).toLocaleString() : 'Not yet'}</p>
       <p><strong>Reboot restore:</strong> {status?.lastRestoreAt ? status.lastRestoreCount + ' future reminder(s) re-registered' : 'Not tested yet'}</p>
-      <p className="island-diagnostics-note">Status is stored on this phone only. A posted notification may be silent or hidden by Do Not Disturb.</p>
+      <p className="island-diagnostics-note">A service-start request does not guarantee the overlay appeared. A "displayed successfully" status confirms it was added to the screen. This diagnostic is stored locally. Android may restrict background overlays and Do Not Disturb may hide heads-up alerts.</p>
     </div>}
     <div className="island-meta"><Sparkles size={13}/> {supported ? (status?.scheduledCount ?? '—') + ' reminder(s) waiting · Local to this device' : 'Preview controls appear in the Android app only'}</div>
   </section>

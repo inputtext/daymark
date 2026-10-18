@@ -41,6 +41,7 @@ public class DaymarkIslandPlugin extends Plugin {
         state.put("delivery", "inexact");
         state.put("lastDelivery", IslandReminders.lastDelivery(getContext()));
         state.put("lastOverlay", IslandReminders.lastOverlay(getContext()));
+        state.put("lastOverlayAt", IslandReminders.lastOverlayAt(getContext()));
         state.put("lastDeliveryAt", IslandReminders.lastDeliveryAt(getContext()));
         state.put("lastRestoreAt", IslandReminders.lastRestoreAt(getContext()));
         state.put("lastRestoreCount", IslandReminders.lastRestoreCount(getContext()));

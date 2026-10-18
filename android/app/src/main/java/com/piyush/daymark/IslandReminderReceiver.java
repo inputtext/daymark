@@ -43,6 +43,13 @@ public class IslandReminderReceiver extends BroadcastReceiver {
             context.stopService(new Intent(context, DaymarkIslandService.class));
             return;
         }
+        if (IslandReminders.ACTION_SHOW_ISLAND.equals(action)) {
+            // Explicit tap in the existing reminder notification, not a new
+            // notification or a fresh scheduled alarm. Android generally
+            // permits this FGS launch because it follows user interaction.
+            showIsland(context, id, IslandReminders.cleanTitle(intent.getStringExtra("title")), true);
+            return;
+        }
         if (!IslandReminders.ACTION_FIRE.equals(action)) return;
         JSONObject reminder = IslandReminders.pending(context, id);
         if (reminder == null) return; // Cancelled, stale or spoofed intent.
@@ -58,31 +65,41 @@ public class IslandReminderReceiver extends BroadcastReceiver {
         IslandReminders.recordDelivery(context,
                 notificationPosted ? "Notification posted (visibility depends on Android settings)"
                         : "Notification blocked or disabled", "Not attempted");
+        showIsland(context, id, title, false);
+    }
+
+    /** Automatic alarm delivery is best-effort on modern Android. Notification
+     * user actions get a separate attempt without bypassing OS restrictions.
+     */
+    private static void showIsland(Context context, String id, String title, boolean userRequested) {
         if (!IslandReminders.enabled(context)) {
-            IslandReminders.recordOverlay(context, "Island switched off");
+            IslandReminders.recordOverlay(context, "Floating Island switched off");
             return;
         }
         if (!Settings.canDrawOverlays(context)) {
-            IslandReminders.recordOverlay(context, "Overlay permission missing or revoked");
+            IslandReminders.recordOverlay(context, "Display over other apps permission missing");
             return;
         }
         KeyguardManager lock = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
         if (lock != null && lock.isDeviceLocked()) {
-            IslandReminders.recordOverlay(context, "Phone locked: notification fallback");
+            IslandReminders.recordOverlay(context, "Phone locked — use the normal notification");
             return;
         }
         Intent overlay = new Intent(context, DaymarkIslandService.class)
                 .setAction(DaymarkIslandService.ACTION_SHOW)
                 .putExtra("id", id).putExtra("title", title);
         try {
-            // May be refused by Android's background FGS restrictions. A regular
-            // notification was already posted and remains usable.
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(overlay);
             else context.startService(overlay);
-            IslandReminders.recordOverlay(context, "Overlay service start requested");
+            IslandReminders.recordOverlay(context,
+                    userRequested ? "User tapped Show Island: starting" : "Automatic overlay requested");
         } catch (RuntimeException restricted) {
-            IslandReminders.recordOverlay(context, "Android blocked background overlay service");
-            // Notification fallback handles denied background service startup.
+            // Android 12–16 can reject background foreground-service launches
+            // even when the overlay permission is granted (Android 15+ tightened
+            // the permission-only exemption). The normal alert remains posted.
+            IslandReminders.recordOverlay(context,
+                    (userRequested ? "Notification action" : "Automatic background start")
+                            + " blocked by Android: " + restricted.getClass().getSimpleName());
         }
     }
 }

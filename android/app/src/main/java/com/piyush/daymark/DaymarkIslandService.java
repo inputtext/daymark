@@ -71,6 +71,9 @@ public class DaymarkIslandService extends Service {
             return START_NOT_STICKY;
         }
         if (!IslandReminders.enabled(this) || !Settings.canDrawOverlays(this)) {
+            IslandReminders.recordOverlay(this,
+                    !IslandReminders.enabled(this) ? "Floating Island switched off"
+                            : "Display over other apps permission missing");
             stopSelf(startId);
             return START_NOT_STICKY;
         }
@@ -82,9 +85,13 @@ public class DaymarkIslandService extends Service {
             startForegroundNotification(currentId, currentTitle);
             removeOverlay();
             showOverlay(currentTitle);
+            // Record actual WindowManager success, not merely a service-start
+            // request. Helpful when users see only the normal notification.
+            IslandReminders.recordOverlay(this, "Floating Island displayed successfully");
         } catch (RuntimeException denied) {
-            // Runtime overlay/FGS restrictions are not fatal; the receiver posts
-            // the standard reminder notification independently.
+            // The normal reminder notification is independent and remains.
+            IslandReminders.recordOverlay(this,
+                    "Floating Island failed to display: " + denied.getClass().getSimpleName());
             stopSelf(startId);
         }
         return START_NOT_STICKY;
