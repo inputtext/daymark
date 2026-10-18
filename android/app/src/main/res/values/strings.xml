@@ -4,4 +4,7 @@
     <string name="title_activity_main">Daymark</string>
     <string name="package_name">com.piyush.daymark</string>
     <string name="custom_url_scheme">com.piyush.daymark</string>
+    <string name="widget_today_description">Today's active tasks and overdue work</string>
+    <string name="widget_upcoming_description">Upcoming task deadlines and reminders</string>
+    <string name="widget_progress_description">Your daily task completion progress</string>
 </resources>
