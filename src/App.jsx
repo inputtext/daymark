@@ -21,6 +21,7 @@ import ExpressiveLoading from './components/ExpressiveLoading.jsx'
 const NotesWorkspace = lazy(() => import('./components/NotesWorkspace.jsx'))
 import QuickNoteEditor from './components/QuickNoteEditor.jsx'
 import ExpressiveFabMenu from './components/ExpressiveFabMenu.jsx'
+import SmartQuickAdd from './components/SmartQuickAdd.jsx'
 import {notesStorageKey,readNotes,writeNotes,newDraft,saveDraft,togglePinned,deleteNote} from './lib/notes.js'
 const ExpressiveCalendar = lazy(() => import('./components/ExpressiveCalendar.jsx'))
 import { ExpressiveDatePicker, ExpressiveTimePicker } from './components/ExpressivePickers.jsx'
@@ -162,13 +163,13 @@ function AuthScreen({ onDemo, onAuth, onShowIntro, notify }) {
   </div>
 }
 
-function TaskModal({ task, initialDue, onClose, onSave, onDelete, busy, reducedMotion, feel }) {
-  const [title, setTitle] = useState(task?.title || '')
-  const [notes, setNotes] = useState(task?.notes || '')
-  const [dueDate, setDueDate] = useState(task?.due_date || initialDue || '')
-  const [dueTime, setDueTime] = useState(task?.due_time || '')
-  const [priority, setPriority] = useState(task?.priority || 'medium')
-  const [remindAtTime,setRemindAtTime] = useState(!task && isAndroidIslandSupported())
+function TaskModal({ task, initialDue, initialDraft, onClose, onSave, onDelete, busy, reducedMotion, feel }) {
+  const [title, setTitle] = useState(task?.title || initialDraft?.title || '')
+  const [notes, setNotes] = useState(task?.notes || initialDraft?.notes || '')
+  const [dueDate, setDueDate] = useState(task?.due_date || initialDraft?.due_date || initialDue || '')
+  const [dueTime, setDueTime] = useState(task?.due_time || initialDraft?.due_time || '')
+  const [priority, setPriority] = useState(task?.priority || initialDraft?.priority || 'medium')
+  const [remindAtTime,setRemindAtTime] = useState(!task && isAndroidIslandSupported() && (initialDraft?.remind_at_time ?? true))
   const [checkingReminder,setCheckingReminder] = useState(Boolean(task && isAndroidIslandSupported()))
   useEffect(()=>{
     if(!task?.id || !isAndroidIslandSupported()) return
@@ -239,7 +240,8 @@ function App() {
   const [query, setQuery] = useState('')
   const [priority, setPriority] = useState('all')
   const [sort, setSort] = useState('smart')
-  const [modal, setModal] = useState(null) // null | {task?, due?}
+  const [modal, setModal] = useState(null) // null | {task?, due?, draft?}
+  const [smartComposerOpen,setSmartComposerOpen] = useState(false)
   const [notes,setNotes] = useState([])
   const [noteEditor,setNoteEditor] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -562,6 +564,7 @@ function App() {
         }
       }
       setModal(null)
+      setSmartComposerOpen(false)
       feel('success')
       notify((modal?.task?'Task updated':'Task added')+reminderNote)
     } catch (e) {feel('error');notify(`Could not save task: ${e.message}`)}
@@ -652,6 +655,19 @@ function App() {
   const progress = stats.all ? Math.round(stats.completed / stats.all * 100) : 0
   const navigate = id => {feel('selection');setView(id);setSidebarOpen(false);setAppearanceOpen(false)}
   const opening = (due) => {feel('action');setModal({due})}
+  const openSmartAdd = () => {
+    if(busy)return
+    setSidebarOpen(false)
+    setAppearanceOpen(false)
+    setModal(null)
+    setSmartComposerOpen(true)
+    feel('action')
+  }
+  const moveSmartToDetails = draft => {
+    setSmartComposerOpen(false)
+    setModal({due:draft.due_date,draft})
+    feel('selection')
+  }
   const currentDate = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})
 
   if (session === 'loading') return <ExpressiveLoading kind="app" fullScreen/>
@@ -779,9 +795,13 @@ function App() {
         <span>{item.label==='All tasks'?'Home':item.label}</span>
       </button>)}
     </nav></LayoutGroup>
-    <ExpressiveFabMenu onNewTask={()=>opening(view==='today'?today:null)} onQuickNote={openQuickNote} onNotes={()=>navigate('notes')} feel={feel} reducedMotion={lessMotion}/>
+    <ExpressiveFabMenu onNewTask={openSmartAdd} onQuickNote={openQuickNote} onNotes={()=>navigate('notes')} feel={feel} reducedMotion={lessMotion}/>
     <AnimatePresence>{noteEditor && <QuickNoteEditor key={noteEditor.id} cloudMode={session==='cloud'} note={noteEditor} onChange={updateNote} onClose={()=>setNoteEditor(null)} onPin={()=>updateNote({...noteEditor,pinned:!noteEditor.pinned})} feel={feel} reducedMotion={lessMotion}/>}</AnimatePresence>
-    <AnimatePresence>{modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} busy={busy} reducedMotion={lessMotion} feel={feel} onSave={saveTask} onDelete={deleteTask} onClose={()=>!busy&&setModal(null)}/>}</AnimatePresence>
+    <AnimatePresence>{smartComposerOpen&&<SmartQuickAdd key="smart-quick-add" initialDue={view==='today'?today:''}
+      busy={busy} offline={session==='cloud'&&!online}
+      reducedMotion={lessMotion} feel={feel}
+      onSave={saveTask} onMoreDetails={moveSmartToDetails} onClose={()=>!busy&&setSmartComposerOpen(false)}/>}</AnimatePresence>
+    <AnimatePresence>{modal && <TaskModal key={modal.task?.id||'new'} task={modal.task} initialDue={modal.due} initialDraft={modal.draft} busy={busy} reducedMotion={lessMotion} feel={feel} onSave={saveTask} onDelete={deleteTask} onClose={()=>!busy&&setModal(null)}/>}</AnimatePresence>
     <AnimatePresence>{toast && <motion.div key={toast} role="status" className="toast v04-toast" initial={lessMotion?false:{opacity:0,y:16,scale:.94}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:8,scale:.98}} transition={lessMotion?{duration:.05}:SPRING}><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={15}/></button></motion.div>}</AnimatePresence>
   </div></MotionConfig>
 }
