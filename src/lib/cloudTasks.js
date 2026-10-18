@@ -20,11 +20,11 @@ function writeTaskOutbox(storage, userId, pending) {
   storage.setItem(taskOutboxKey(userId), JSON.stringify(pending))
 }
 
-export function queueTaskPut(storage, userId, task) {
+export function queueTaskPut(storage, userId, task, {isNew = false} = {}) {
   if (!task || !idPattern.test(task.id || '') || typeof task.title !== 'string' || !task.title.trim())
     throw new Error('Invalid task cannot be saved offline')
   const pending = readTaskOutbox(storage, userId)
-  pending[task.id] = { type: 'put', task }
+  pending[task.id] = { type: 'put', task, isNew: Boolean(isNew || pending[task.id]?.isNew) }
   writeTaskOutbox(storage, userId, pending)
   return Object.keys(pending).length
 }
@@ -79,12 +79,17 @@ export async function flushTaskOutbox({ storage, userId, client, dueTimeSupporte
       if (!dueTimeSupported && payload.due_time)
         throw new Error('Cloud task times require migrations/20261017_add_due_time.sql. Your changes are saved on this device.')
       if (!dueTimeSupported) delete payload.due_time
-      response = await client.database.from('tasks').upsert(payload, {onConflict: 'id'})
+      const write = async data => {
+        if (op.isNew) return client.database.from('tasks').upsert(data, {onConflict: 'id'})
+        const {id: taskId, created_at: _created, user_id: _user, ...changes} = data
+        return client.database.from('tasks').update(changes).eq('id', taskId).eq('user_id', userId)
+      }
+      response = await write(payload)
       if (response.error && dueTimeSupported && missingDueTime(response.error)) {
         if (payload.due_time)
           throw new Error('Cloud task times require migrations/20261017_add_due_time.sql. Your changes are saved on this device.')
         delete payload.due_time
-        response = await client.database.from('tasks').upsert(payload, {onConflict: 'id'})
+        response = await write(payload)
       }
     }
     if (response.error) throw new Error(response.error.message || 'Could not sync cloud tasks')
