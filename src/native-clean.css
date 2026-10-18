@@ -1,0 +1,183 @@
+/* Daymark v0.8.6 — touch-first native Android UI.
+   Scoped to .native-app, which is assigned by Capacitor.isNativePlatform().
+   Desktop/browser layout and keyboard shortcuts stay exactly as they were.
+   Never hide forms, error messages, offline warnings or empty-state guidance. */
+.app-shell.native-app .app-content,
+.app-shell.native-app .main-area{min-width:0;max-width:100%}
+.app-shell.native-app .topbar{
+  min-width:0;max-width:100%;height:68px;
+  padding-inline:clamp(13px,3.8vw,22px);
+  gap:10px;
+}
+.app-shell.native-app .topbar-leading{min-width:0;flex:0 0 auto}
+.app-shell.native-app .topbar-actions{margin-left:auto;gap:10px;min-width:0}
+.app-shell.native-app .main-area{
+  display:flex;flex-direction:column;
+  padding-top:clamp(12px,2.5vh,20px);
+  padding-bottom:calc(112px + var(--dm-inset-bottom,0px));
+  gap:0;
+  overflow-x:clip;
+}
+.app-shell.native-app .page-heading{
+  min-width:0;margin-bottom:13px;align-items:center;
+  gap:8px;
+}
+.app-shell.native-app .page-heading h1{
+  font-size:clamp(23px,6vw,31px);
+  letter-spacing:-1px;
+  line-height:1.15;
+  margin:0;
+  overflow-wrap:anywhere;
+}
+.app-shell.native-app .page-heading.is-detail-page{display:none}
+
+/* Put real tasks/search ahead of secondary dashboard summaries. */
+.app-shell.native-app .task-panel{order:1;margin-bottom:14px;min-width:0}
+.app-shell.native-app .hero-row{order:2;display:block;min-width:0;margin:0 0 14px}
+.app-shell.native-app .stat-grid{order:3;min-width:0;margin:0 0 14px}
+.app-shell.native-app .progress-card{
+  min-width:0;min-height:0;
+  border-radius:28px;padding:15px 18px;
+}
+.app-shell.native-app .progress-card-top{font-size:10px;letter-spacing:.8px}
+.app-shell.native-app .progress-icon{width:30px;height:30px;border-radius:12px}
+.app-shell.native-app .progress-card .progress-value{
+  font-size:clamp(31px,7vw,40px);
+  letter-spacing:-1.2px;
+  line-height:1;
+  margin:6px 0 4px;
+}
+.app-shell.native-app .progress-value span{font-size:15px}
+.app-shell.native-app .progress-card p{
+  font-size:11px;
+  margin-bottom:9px;
+}
+.app-shell.native-app .progress-track{height:7px}
+.app-shell.native-app .progress-bottom{display:none}
+.app-shell.native-app .stat-grid{gap:8px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.app-shell.native-app .stat-card{
+  padding:12px 10px;gap:7px;min-width:0;min-height:92px;
+  border-radius:19px;
+  flex-direction:column;align-items:flex-start;
+}
+.app-shell.native-app .stat-icon{height:28px;width:28px;border-radius:10px}
+.app-shell.native-app .stat-value{font-size:20px}
+.app-shell.native-app .stat-name{font-size:10px;line-height:1.2;overflow-wrap:anywhere}
+.app-shell.native-app .task-panel{
+  border-radius:27px;
+  overflow:hidden;
+}
+.app-shell.native-app .task-panel-top{
+  padding:14px 16px 9px;
+  gap:9px;
+  align-items:center;
+}
+.app-shell.native-app .task-panel-top h2{font-size:16px;margin:0}
+.app-shell.native-app .task-filters{
+  padding:8px 14px 13px;
+  gap:9px;
+}
+.app-shell.native-app .search-box{max-width:none;min-width:0;min-height:47px;border-radius:19px}
+.app-shell.native-app .search-box input{font-size:14px}
+.app-shell.native-app .filter-selects{gap:8px}
+.app-shell.native-app .filter-selects select{min-height:43px;font-size:12px}
+.app-shell.native-app .task-panel-bottom{display:none}
+.app-shell.native-app .task-panel-tools .text-icon-button{min-height:44px}
+.app-shell.native-app .native-gesture-help{
+  padding:0 16px 5px;
+  color:var(--muted);
+  font-size:11px;
+}
+.app-shell.native-app .native-gesture-help summary{
+  display:inline-flex;align-items:center;min-height:37px;
+  font-weight:800;color:var(--accent);
+  cursor:pointer;
+  list-style:revert;
+}
+.app-shell.native-app .native-gesture-help p{
+  color:var(--muted);
+  margin:3px 0 7px;
+  font-size:11px;line-height:1.5;
+}
+.app-shell.native-app .native-gesture-help summary:focus-visible,
+.app-shell.native-app .native-calendar-help summary:focus-visible{
+  outline:3px solid var(--accent);outline-offset:3px;
+}
+/* Native Notes: functional actions and sync state take precedence over slogans. */
+.app-shell.native-app .notes-workspace{order:0;min-width:0}
+.app-shell.native-app .notes-overview{
+  align-items:center;
+  min-height:0;
+  padding:16px 17px;
+  gap:9px;
+  border-radius:28px;
+}
+.app-shell.native-app .notes-overview-copy{min-width:0}
+.app-shell.native-app .notes-overview h2{
+  font-size:clamp(20px,5vw,27px);
+  margin:0 0 8px;
+  letter-spacing:-.55px;
+}
+.app-shell.native-app .notes-stats{gap:6px;margin-top:0}
+.app-shell.native-app .notes-stats span{padding:5px 8px;font-size:10px}
+.app-shell.native-app .notes-overview-create{
+  min-height:44px;
+  padding:8px 12px;
+  font-size:11px;
+}
+.app-shell.native-app .notes-toolbar{margin-top:12px}
+.app-shell.native-app .notes-local-footnote{
+  text-align:left;
+  margin-top:12px;
+  font-size:11px;
+}
+.app-shell.native-app .notes-cloud-banner{
+  margin:12px 0;
+  border-radius:17px;
+  padding:10px 12px;
+  font-size:11px;
+}
+/* Native calendar keeps the actual month/day titles and date controls. */
+.app-shell.native-app .daymark-calendar{min-width:0;order:0}
+.app-shell.native-app .daymark-calendar-card,
+.app-shell.native-app .daymark-timeline{border-radius:26px}
+.app-shell.native-app .daymark-calendar-head h2{
+  margin-top:0;
+  font-size:clamp(20px,5vw,28px);
+}
+.app-shell.native-app .daymark-timeline-head h2{
+  margin-top:0;
+  font-size:clamp(18px,5vw,25px);
+}
+.app-shell.native-app .native-calendar-help{
+  color:var(--muted);
+  font-size:11px;
+  margin:2px 0 12px;
+}
+.app-shell.native-app .native-calendar-help summary{
+  min-height:37px;
+  display:inline-flex;
+  align-items:center;
+  cursor:pointer;
+  color:var(--accent);
+  font-weight:800;
+}
+.app-shell.native-app .native-calendar-help p{
+  color:var(--muted);
+  line-height:1.55;
+  font-size:11px;
+  margin:2px 0 8px;
+}
+/* Keep notes errors, offline warnings, accessibility labels, edit/delete
+   confirmations, date/time controls, and all permissions UI visible. */
+@media(max-width:380px){
+  .app-shell.native-app .topbar{padding-inline:10px}
+  .app-shell.native-app .stat-card{padding:10px 7px}
+  .app-shell.native-app .stat-name{font-size:9px}
+  .app-shell.native-app .notes-overview{padding:13px 12px}
+  .app-shell.native-app .notes-overview-create{font-size:10px;padding:8px 10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .app-shell.native-app .native-gesture-help *,
+  .app-shell.native-app .native-calendar-help *{transition:none!important}
+}
