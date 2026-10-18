@@ -20,3 +20,10 @@ dist/
 .roo
 .trae
 .windsurf
+
+# Daymark release signing secrets and local APK handoff artifacts
+*.jks
+*.keystore
+keystore.properties
+android/keystore.properties
+release-artifacts/
