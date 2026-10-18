@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="15dp"
+    android:background="@drawable/daymark_widget_background">
+    <TextView android:id="@+id/widget_heading" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:singleLine="true"
+        android:ellipsize="end" android:textSize="16sp" android:textStyle="bold"
+        android:textColor="#251E31" android:text="Today's tasks" />
+    <TextView android:id="@+id/widget_subheading" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="2dp"
+        android:singleLine="true" android:ellipsize="end" android:textSize="11sp"
+        android:textColor="#6D627C" android:text="Daymark" />
+    <LinearLayout android:id="@+id/widget_rows" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1"
+        android:orientation="vertical" android:layout_marginTop="10dp">
+        <TextView android:id="@+id/widget_row_1" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:singleLine="true"
+            android:ellipsize="end" android:paddingTop="5dp" android:paddingBottom="5dp"
+            android:textColor="#251E31" android:textSize="13sp" />
+        <TextView android:id="@+id/widget_row_2" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:singleLine="true"
+            android:ellipsize="end" android:paddingTop="5dp" android:paddingBottom="5dp"
+            android:textColor="#251E31" android:textSize="13sp" />
+        <TextView android:id="@+id/widget_row_3" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:singleLine="true"
+            android:ellipsize="end" android:paddingTop="5dp" android:paddingBottom="5dp"
+            android:textColor="#251E31" android:textSize="13sp" />
+        <TextView android:id="@+id/widget_row_4" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:singleLine="true"
+            android:ellipsize="end" android:paddingTop="5dp" android:paddingBottom="5dp"
+            android:textColor="#251E31" android:textSize="13sp" />
+    </LinearLayout>
+    <TextView android:id="@+id/widget_footer" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:singleLine="true"
+        android:ellipsize="end" android:textSize="11sp"
+        android:textColor="#6655A6" android:text="Open Daymark →" />
+</LinearLayout>

@@ -29,6 +29,7 @@ import { localISO } from './lib/calendar.js'
 const IslandSettings = lazy(() => import('./components/IslandSettings.jsx'))
 import {scheduleTaskReminder, cancelTaskReminder, syncIslandHaptics, syncIslandReducedMotion, isAndroidIslandSupported, calendarReminderScheduled, cancelCalendarReminder, syncCalendarReminder, calendarReminderAt} from './lib/island.js'
 import { SPRING } from './lib/gestures.js'
+import { syncHomeWidgets, clearHomeWidgets, supportsHomeWidgets } from './lib/homeWidgets.js'
 
 // Native Android gets touch-first chrome; web remains a complete desktop workspace.
 // Only global productivity shortcuts are disabled in the native shell. Accessible
@@ -260,7 +261,7 @@ function App() {
   const [unlockGranted,setUnlockGranted]=useState(false)
   const [lockError,setLockError]=useState('')
   const [biometricBusy,setBiometricBusy]=useState(false)
-  const [,setLockEpoch]=useState(0)
+  const [lockEpoch,setLockEpoch]=useState(0)
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME) || 'light')
   const [palette, setPalette] = useState(() => {
     try { return ['iris','lagoon','citrus','rose'].includes(localStorage.getItem('daymark:palette')) ? localStorage.getItem('daymark:palette') : 'iris' }
@@ -283,6 +284,16 @@ function App() {
   const notify = useCallback(message => setToast(message), [])
   // Preserve existing local Notes as a per-user offline copy.
   // The outbox uploads explicitly changed notes and soft-delete tombstones.
+  // Native launcher widgets only show tasks from the current unlocked session.
+  useEffect(() => {
+    if (!supportsHomeWidgets()) return
+    const validSession = session === 'demo' || (session === 'cloud' && Boolean(user?.id))
+    const locked = session === 'cloud' && biometricLockEnabled(localStorage, user?.id) && !unlockGranted
+    void (validSession && !locked ? syncHomeWidgets(tasks) : clearHomeWidgets()).catch(() => {
+      // Launcher sync never blocks task actions, sign-in, or biometric unlock.
+    })
+  }, [session, user?.id, tasks, unlockGranted, lockEpoch])
+
   const noteScope = notesStorageKey(session, user?.id)
   activeSyncScope.current=noteScope
   useEffect(() => {
@@ -518,6 +529,7 @@ function App() {
     finally{authPromptActive.current=false;setBiometricBusy(false)}
   }
   const signOut = async () => {
+    void clearHomeWidgets().catch(() => {})
     if (session === 'cloud' && insforge) {
       const {error} = await insforge.auth.signOut()
       if (error) {notify(error.message);return}

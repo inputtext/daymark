@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(DaymarkHapticsPlugin.class);
         registerPlugin(DaymarkIslandPlugin.class);
+        registerPlugin(DaymarkWidgetsPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
