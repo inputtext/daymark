@@ -31,6 +31,41 @@
             </intent-filter>
         </activity>
 
+        <!-- Resizable, native launcher widgets: no additional permissions. -->
+        <receiver android:name=".DaymarkWidgetProvider$Today" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/daymark_widget_today" />
+        </receiver>
+        <receiver android:name=".DaymarkWidgetProvider$Upcoming" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/daymark_widget_upcoming" />
+        </receiver>
+        <receiver android:name=".DaymarkWidgetProvider$Progress" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/daymark_widget_progress" />
+        </receiver>
+
         <!-- User-scheduled alarms deliver notification fallback even when the
              overlay feature is off. Reboot restores still-pending reminders. -->
         <receiver android:name=".IslandReminderReceiver" android:exported="false">
