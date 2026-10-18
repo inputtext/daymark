@@ -26,7 +26,7 @@ const ExpressiveCalendar = lazy(() => import('./components/ExpressiveCalendar.js
 import { ExpressiveDatePicker, ExpressiveTimePicker } from './components/ExpressivePickers.jsx'
 import { localISO } from './lib/calendar.js'
 const IslandSettings = lazy(() => import('./components/IslandSettings.jsx'))
-import {scheduleTaskReminder, cancelTaskReminder, syncIslandHaptics, isAndroidIslandSupported, calendarReminderScheduled, cancelCalendarReminder, syncCalendarReminder, calendarReminderAt} from './lib/island.js'
+import {scheduleTaskReminder, cancelTaskReminder, syncIslandHaptics, syncIslandReducedMotion, isAndroidIslandSupported, calendarReminderScheduled, cancelCalendarReminder, syncCalendarReminder, calendarReminderAt} from './lib/island.js'
 import { SPRING } from './lib/gestures.js'
 
 const STORAGE = 'daymark:demo-tasks:v1'
@@ -351,6 +351,8 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.lessMotion = String(lessMotion)
     try { localStorage.setItem('daymark:less-motion',String(lessMotion)) } catch { /* private browsing */ }
+    // Match native Island's accessible motion preference with the WebView UI.
+    void syncIslandReducedMotion(lessMotion).catch(() => {})
   }, [lessMotion])
   useEffect(() => {
     if (!toast) return
@@ -732,7 +734,7 @@ function App() {
               ].map(sample=><button key={sample.kind} type="button" disabled={hapticLevel==='off'} onClick={()=>feel(sample.kind)} aria-label={`Try ${sample.label} feedback`}><span className="haptic-sample-icon"><Sparkles size={14}/></span><span>{sample.label}</span></button>)}
             </div>
           </div>
-          <Suspense fallback={<ExpressiveLoading kind="settings" compact/>}><IslandSettings notify={notify} feel={feel}/></Suspense>
+          <Suspense fallback={<ExpressiveLoading kind="settings" compact/>}><IslandSettings notify={notify} feel={feel} reducedMotion={lessMotion}/></Suspense>
           <button className="button-primary appearance-done" onClick={()=>{feel('action');setAppearanceOpen(false)}}>Looks good <Check size={18}/></button>
         </motion.section>
       </motion.div>}</AnimatePresence>

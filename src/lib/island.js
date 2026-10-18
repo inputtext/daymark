@@ -13,6 +13,8 @@ export const UNSUPPORTED_ISLAND_STATUS = Object.freeze({
   placementX: 0,
   placementY: 0,
   placementWidth: 280,
+  motionStyle: 'spring',
+  motionReduced: false,
 })
 
 export const isAndroidIslandSupported = () => Capacitor.getPlatform() === 'android'
@@ -45,6 +47,30 @@ export async function setIslandEnabled(enabled) {
   if (!isAndroidIslandSupported()) throw new Error('Floating Island is available in the Android app only')
   return DaymarkIsland.setEnabled({enabled: Boolean(enabled)})
 }
+export const ISLAND_MOTION_PRESETS = Object.freeze([
+  {id:'spring', label:'Spring Flow', description:'Soft, balanced bounce'},
+  {id:'bloom', label:'Fruit Bloom', description:'Organic, juicy expansion'},
+  {id:'elastic', label:'Elastic Pop', description:'Playful, springy rebound'},
+  {id:'glide', label:'Silk Glide', description:'Calm and nearly weightless'},
+])
+
+export function validateIslandMotionStyle(style) {
+  if (!ISLAND_MOTION_PRESETS.some(preset=>preset.id===style)) {
+    throw new Error('Choose a supported Island motion style')
+  }
+  return style
+}
+
+export async function setIslandMotionStyle(style) {
+  if (!isAndroidIslandSupported()) throw new Error('Island motion settings require the Android app')
+  return DaymarkIsland.setMotionStyle({style:validateIslandMotionStyle(style)})
+}
+
+export async function syncIslandReducedMotion(reduced) {
+  if (!isAndroidIslandSupported()) return
+  return DaymarkIsland.syncReducedMotion({reduced:Boolean(reduced)})
+}
+
 export async function syncIslandHaptics(level) {
   if (!isAndroidIslandSupported()) return
   return DaymarkIsland.syncHaptics({level})

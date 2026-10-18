@@ -1,16 +1,27 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BellRing, Check, Clock3, Layers3, ShieldAlert, Sparkles, ExternalLink, Eye } from 'lucide-react'
+import { BellRing, Check, Clock3, Layers3, ShieldAlert, Sparkles, ExternalLink, Eye, Flower2, Waves, CircleDot, Wind, Play } from 'lucide-react'
+import { motion } from 'motion/react'
 import {
   islandStatus, isAndroidIslandSupported, previewIsland,
   requestIslandNotifications, requestIslandOverlay,
-  scheduleIslandTest, setIslandEnabled, setIslandPlacement, ISLAND_PLACEMENT_DEFAULT,
+  scheduleIslandTest, setIslandEnabled, setIslandPlacement, setIslandMotionStyle,
+  ISLAND_MOTION_PRESETS, ISLAND_PLACEMENT_DEFAULT,
 } from '../lib/island.js'
 
 /** Native, opt-in overlay settings; permissions only requested on direct tap. */
-export default function IslandSettings({ notify, feel }) {
+const MOTION_ICONS = {spring:Waves,bloom:Flower2,elastic:CircleDot,glide:Wind}
+const MOTION_SPRINGS = {
+  spring:{type:'spring',stiffness:330,damping:19,mass:.8},
+  bloom:{type:'spring',stiffness:260,damping:12,mass:1.05},
+  elastic:{type:'spring',stiffness:430,damping:10,mass:.75},
+  glide:{type:'spring',stiffness:280,damping:35,mass:.8},
+}
+
+export default function IslandSettings({ notify, feel, reducedMotion=false }) {
   const [status, setStatus] = useState(null)
   const [busy, setBusy] = useState(false)
   const [placement, setPlacement] = useState({...ISLAND_PLACEMENT_DEFAULT})
+  const [previewCycle, setPreviewCycle] = useState(0)
   const supported = isAndroidIslandSupported()
 
   const refresh = useCallback(async () => {
@@ -54,6 +65,9 @@ export default function IslandSettings({ notify, feel }) {
   const enabled = Boolean(status?.enabled)
   const saved = status && placement.mode === status.placementMode && placement.x === status.placementX && placement.y === status.placementY && placement.width === status.placementWidth
   const updatePlacement = (field, value) => setPlacement(prev => ({...prev, [field]: value}))
+  const motionStyle = status?.motionStyle ?? 'spring'
+  const motionPreset = ISLAND_MOTION_PRESETS.find(option=>option.id===motionStyle) ?? ISLAND_MOTION_PRESETS[0]
+  const canAnimate = !reducedMotion && !status?.motionReduced
   return <section className="island-settings" aria-labelledby="island-settings-title">
     <div className="island-settings-heading">
       <span className="island-settings-mark"><Layers3 size={19}/></span>
@@ -94,6 +108,43 @@ export default function IslandSettings({ notify, feel }) {
         </button>
       </div>
     </div>
+    <div className="island-motion-studio" aria-label="Floating Island motion style">
+      <div className="island-motion-heading">
+        <div><span className="island-motion-kicker"><Sparkles size={14}/> ISLAND MOTION STUDIO</span>
+          <strong>Choose how your Island moves.</strong>
+          <p>Native, physics-inspired open, expand, collapse, and close animations. Your reminders stay the same.</p></div>
+      </div>
+      <div className="island-motion-demo">
+        <span className="island-motion-halo" aria-hidden="true"/>
+        <motion.div key={motionStyle + '-' + previewCycle}
+          className={'island-motion-demo-pill island-motion-demo-'+motionStyle}
+          initial={canAnimate?{opacity:0,scaleX:motionStyle==='bloom'?.68:motionStyle==='glide'?.93:.8,scaleY:motionStyle==='bloom'?.55:.75,y:-9}:{opacity:1,scaleX:1,scaleY:1,y:0}}
+          animate={{opacity:1,scaleX:1,scaleY:1,y:0}}
+          transition={canAnimate?MOTION_SPRINGS[motionStyle]:{duration:0}}>
+          <span className="island-motion-demo-symbol"><Sparkles size={18}/></span>
+          <span><small>DAYMARK · REMINDER</small><strong>You've got this.</strong></span>
+          <Check size={17}/>
+        </motion.div>
+        <span className="island-motion-demo-caption">{motionPreset.label} · {motionPreset.description}</span>
+      </div>
+      <div className="island-motion-options" role="group" aria-label="Select Island motion animation">
+        {ISLAND_MOTION_PRESETS.map(option=>{
+          const Icon = MOTION_ICONS[option.id]
+          return <button key={option.id} type="button" className={'island-motion-option'+(motionStyle===option.id?' is-selected':'')}
+            aria-pressed={motionStyle===option.id} disabled={!supported||busy}
+            onClick={()=>{setPreviewCycle(c=>c+1);void attempt(()=>setIslandMotionStyle(option.id),option.label+' selected. Next Island preview will use this motion.') }}>
+            <span className="island-motion-option-icon"><Icon size={21}/></span>
+            <span><strong>{option.label}</strong><small>{option.description}</small></span>
+            {motionStyle===option.id&&<Check size={17} className="island-motion-option-check"/>}
+          </button>
+        })}
+      </div>
+      <button type="button" className="island-motion-replay" disabled={!supported||busy}
+        onClick={()=>{feel('selection');setPreviewCycle(c=>c+1)}}>
+        <Play size={15}/> Replay motion sample
+      </button>
+      <p className="island-motion-help">The illustration previews the style inside Daymark. Tap <strong>Preview Island</strong> below to see the real native animation over your Android screen. Android and Daymark reduced-motion settings take priority.</p>
+    </div>
     <div className="island-calibration" aria-label="Island camera alignment">
       <div className="island-calibration-title">
         <strong>Camera alignment</strong>
@@ -122,7 +173,7 @@ export default function IslandSettings({ notify, feel }) {
           disabled={!supported || busy} onChange={event => updatePlacement(control.key, Number(event.target.value))}/>
       </label>)}
       <div className="island-calibration-actions">
-        <button type="button" disabled={!supported || busy} onClick={() => setPlacement({...ISLAND_PLACEMENT_DEFAULT})}>Pixel 9 preset</button>
+        <button type="button" disabled={!supported || busy} onClick={() => setPlacement({...ISLAND_PLACEMENT_DEFAULT})}>Reset alignment</button>
         <button type="button" className="island-calibration-save" disabled={!supported || busy || saved}
           onClick={() => void attempt(() => setIslandPlacement(placement), 'Island alignment saved. Tap Preview Island to check it on your phone.')}>
           <Check size={15}/> Save alignment

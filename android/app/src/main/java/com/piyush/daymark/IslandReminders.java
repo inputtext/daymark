@@ -56,6 +56,26 @@ public final class IslandReminders {
         return prefs(context).getString("hapticLevel", "balanced");
     }
 
+    // Purely visual, per-device animation preferences. Reminders and alarms
+    // remain independent, including when Floating Island is switched off.
+    static String motionStyle(Context context) {
+        String stored = prefs(context).getString("motionStyle", IslandMotion.SPRING);
+        try { return IslandMotion.validate(stored); }
+        catch (IllegalArgumentException invalid) { return IslandMotion.SPRING; }
+    }
+
+    static void setMotionStyle(Context context, String style) {
+        prefs(context).edit().putString("motionStyle", IslandMotion.validate(style)).apply();
+    }
+
+    static boolean motionReduced(Context context) {
+        return prefs(context).getBoolean("motionReduced", false);
+    }
+
+    static void setMotionReduced(Context context, boolean value) {
+        prefs(context).edit().putBoolean("motionReduced", value).apply();
+    }
+
     // Position is stored locally and applied by WindowManager on every preview.
     // "camera" requests full-screen layout, but Android owns the status bar
     // and may still restrict overlays near the physical camera cutout.
