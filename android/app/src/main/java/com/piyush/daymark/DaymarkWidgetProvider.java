@@ -223,9 +223,9 @@ public class DaymarkWidgetProvider extends AppWidgetProvider {
             }
             String empty = !available ? "Open Daymark to sync"
                     : TYPE_TODAY.equals(type) ? "Nothing due today" : "No upcoming tasks";
-            views.setTextViewText(R.id.widget_footer, !available || items.isEmpty()
-                    ? empty : Math.max(0, items.size() - Math.min(maxRows, ROW_IDS.length))
-                    + " more · Open Daymark →");
+            int hidden = Math.max(0, items.size() - Math.min(maxRows, ROW_IDS.length));
+            views.setTextViewText(R.id.widget_footer, !available || items.isEmpty() ? empty
+                    : hidden > 0 ? hidden + " more · Open Daymark →" : "Open Daymark →");
         }
         manager.updateAppWidget(id, views);
     }
