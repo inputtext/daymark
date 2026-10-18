@@ -43,7 +43,7 @@ export default function SmartQuickAdd({
   const remind=reminderChoice===null ? Boolean(parsed.reminderSuggested&&validReminder)
     : reminderChoice&&validReminder
   const cleanTitle=parsed.title.trim()
-  const canSave=Boolean(cleanTitle && !busy && !offline && parsed.issues.length===0)
+  const canSave=Boolean(cleanTitle && !busy && parsed.issues.length===0)
   const submit=e=>{
     e.preventDefault()
     if(!canSave)return
@@ -182,7 +182,7 @@ export default function SmartQuickAdd({
             </label>}
           </div>
           {parsed.issues.length>0&&<div className="smart-add-warning" role="alert"><CircleAlert size={19}/><span>{parsed.issues.join(' ')}</span></div>}
-          {offline&&<div className="smart-add-warning" role="status"><CircleAlert size={19}/> Cloud tasks need an internet connection. Your Notes can still be edited offline.</div>}
+          {offline&&<div className="smart-add-warning" role="status"><CircleAlert size={19}/> Saved on this device when offline. Cloud sync resumes when you reconnect.</div>}
           <footer className="smart-add-actions">
             <button className="smart-add-details" type="button" disabled={busy} onClick={details}><Keyboard size={16}/> More details <ChevronRight size={17}/></button>
             <motion.button className="smart-add-create" type="submit" disabled={!canSave}

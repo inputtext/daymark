@@ -14,6 +14,7 @@ import { App as NativeApp } from '@capacitor/app'
 import Onboarding, { hasSeenOnboarding, markOnboardingSeen } from './components/Onboarding.jsx'
 import { Network } from '@capacitor/network'
 import { queueNoteChanges, syncCloudNotes, readNotesOutbox } from './lib/cloudNotes.js'
+import { queueTaskPut, queueTaskDelete, readTaskOutbox, overlayPendingTasks, flushTaskOutbox } from './lib/cloudTasks.js'
 import { biometricLockEnabled, setBiometricLockEnabled, checkBiometricAvailability, verifyBiometricLock, isNativeBiometricDevice } from './lib/biometricLock.js'
 import { motion, MotionConfig, AnimatePresence, LayoutGroup } from 'motion/react'
 import GestureTaskRow from './components/GestureTaskRow.jsx'
@@ -256,6 +257,12 @@ function App() {
   const [noteSyncError,setNoteSyncError] = useState('')
   const notesSyncPromise=useRef(null)
   const notesSyncQueued=useRef(false)
+  const [taskSyncSignal,setTaskSyncSignal]=useState(0)
+  const [pendingTaskCount,setPendingTaskCount]=useState(0)
+  const [taskSyncError,setTaskSyncError]=useState('')
+  const tasksSyncPromise=useRef(null)
+  const tasksSyncQueued=useRef(false)
+  const taskMutationEpoch=useRef(0)
   const activeSyncScope=useRef(null)
   const authPromptActive=useRef(false)
   const [unlockGranted,setUnlockGranted]=useState(false)
@@ -389,6 +396,7 @@ function App() {
 
   const refresh = useCallback(async () => {
     if (!insforge || !user?.id || !online) return
+    const requestEpoch=taskMutationEpoch.current
     setLoadingTasks(true)
     try {
       let response = await insforge.database.from('tasks')
@@ -405,18 +413,70 @@ function App() {
       if(response.error)throw response.error
       const items=response.data||[]
       // Do not mix task caches between different signed-in users.
-      if(activeSyncScope.current===notesStorageKey('cloud',user.id)){
-        setTasks(items)
-        saveTaskCache(user.id,items)
+      if(activeSyncScope.current===notesStorageKey('cloud',user.id) && requestEpoch===taskMutationEpoch.current){
+        const merged=overlayPendingTasks(items,readTaskOutbox(localStorage,user.id))
+        setTasks(merged)
+        saveTaskCache(user.id,merged)
       }
     } catch(error) {
       notify(error?.message||'Could not refresh tasks. Showing saved copy.')
     } finally {setLoadingTasks(false)}
   }, [notify,user?.id,online])
   useEffect(()=>{
-    if(session==='cloud'&&user?.id)setTasks(cachedCloudTasks(user.id))
+    if(session==='cloud'&&user?.id){
+      const pending=readTaskOutbox(localStorage,user.id)
+      setTasks(overlayPendingTasks(cachedCloudTasks(user.id),pending))
+      setPendingTaskCount(Object.keys(pending).length)
+      setTaskSyncError('')
+    }
   },[session,user?.id])
   useEffect(()=>{if(session==='cloud'&&user?.id&&online)void refresh()},[session,user?.id,online,resumeSignal,refresh])
+
+  // Local-first mutations work with or without network connectivity. An outbox write
+  // must succeed before the visible task list is changed, so an offline edit is not lost.
+  const queueCloudTask=useCallback((type,task,{isNew=false}={})=>{
+    if(session!=='cloud'||!user?.id)throw new Error('Sign in to save cloud tasks')
+    if(type==='delete')queueTaskDelete(localStorage,user.id,task.id)
+    else queueTaskPut(localStorage,user.id,task,{isNew})
+    const pending=readTaskOutbox(localStorage,user.id)
+    const merged=overlayPendingTasks(tasks,pending)
+    saveTaskCache(user.id,merged)
+    taskMutationEpoch.current++
+    setTasks(merged)
+    setPendingTaskCount(Object.keys(pending).length)
+    setTaskSyncSignal(value=>value+1)
+  },[session,user?.id,tasks])
+
+  const syncTasksNow=useCallback(async()=>{
+    if(session!=='cloud'||!user?.id||!insforge||!online)return
+    if(tasksSyncPromise.current){tasksSyncQueued.current=true;return}
+    const account=user.id
+    if(!Object.keys(readTaskOutbox(localStorage,account)).length)return
+    const promise=flushTaskOutbox({storage:localStorage,userId:account,client:insforge,dueTimeSupported:cloudTimeSupported.current})
+    tasksSyncPromise.current=promise
+    try{
+      const result=await promise
+      if(activeSyncScope.current!==notesStorageKey('cloud',account))return
+      setPendingTaskCount(result.pending)
+      setTaskSyncError('')
+      taskMutationEpoch.current++
+      await refresh()
+      if(result.pending)tasksSyncQueued.current=true
+    }catch(error){
+      if(activeSyncScope.current===notesStorageKey('cloud',account)){
+        setTaskSyncError(error?.message||'Task changes could not sync')
+        notify('Task changes remain saved on this device. Reconnect or retry sync.')
+      }
+    }finally{
+      tasksSyncPromise.current=null
+      if(tasksSyncQueued.current){tasksSyncQueued.current=false;setTaskSyncSignal(value=>value+1)}
+    }
+  },[session,user?.id,online,refresh,notify])
+  useEffect(()=>{
+    if(session!=='cloud'||!user?.id||!online)return
+    const timer=setTimeout(()=>void syncTasksNow(),650)
+    return()=>clearTimeout(timer)
+  },[session,user?.id,online,resumeSignal,taskSyncSignal,syncTasksNow])
 
   const syncNotesNow=useCallback(async()=>{
     if(session!=='cloud'||!user?.id||!insforge||!online||!noteScope)return
@@ -531,6 +591,8 @@ function App() {
     finally{authPromptActive.current=false;setBiometricBusy(false)}
   }
   const signOut = async () => {
+    if(session==='cloud'&&user?.id&&Object.keys(readTaskOutbox(localStorage,user.id)).length &&
+      !window.confirm('You have task changes waiting to sync. They will stay on this device until you sign in again. Sign out anyway?'))return
     void clearHomeWidgets().catch(() => {})
     if (session === 'cloud' && insforge) {
       const {error} = await insforge.auth.signOut()
@@ -541,12 +603,12 @@ function App() {
   const writeDemo = updated => {setTasks(updated);localStorage.setItem(STORAGE, JSON.stringify(updated))}
   const saveTask = async formFields => {
     if (busy) return
-    if(session==='cloud'&&!online){notify('You are offline. Task changes need an internet connection; Notes can be edited offline.');return}
     setBusy(true)
     try {
       const {remind_at_time, ...fields} = formFields
       const taskId = modal?.task?.id || crypto.randomUUID()
-      const savedTask = {...modal?.task,...fields,id:taskId,is_complete:modal?.task?.is_complete||false}
+      const now=new Date().toISOString()
+      const savedTask = {...modal?.task,...fields,id:taskId,is_complete:modal?.task?.is_complete||false,created_at:modal?.task?.created_at||now,updated_at:now}
       if (session === 'demo') {
         if (modal?.task) {
           writeDemo(tasks.map(task=>task.id===taskId?{...task,...fields,updated_at:new Date().toISOString()}:task))
@@ -556,13 +618,7 @@ function App() {
         }
       } else {
         if (!cloudTimeSupported.current && fields.due_time) throw new Error('To save task times in your cloud account, apply migrations/20261017_add_due_time.sql in InsForge first.')
-        const cloudFields = cloudTimeSupported.current ? fields : Object.fromEntries(Object.entries(fields).filter(([key])=>key!=='due_time'))
-        const req = modal?.task
-          ? insforge.database.from('tasks').update(cloudFields).eq('id',taskId)
-          : insforge.database.from('tasks').insert([{...cloudFields,id:taskId}])
-        const {error} = await req
-        if (error) throw error
-        await refresh()
+        queueCloudTask('put',savedTask,{isNew:!modal?.task})
       }
       let reminderNote = ''
       // Saving a task is never dependent on Android granting a notification.
@@ -580,45 +636,39 @@ function App() {
       setModal(null)
       setSmartComposerOpen(false)
       feel('success')
-      notify((modal?.task?'Task updated':'Task added')+reminderNote)
+      notify((modal?.task?'Task updated':'Task added')+(session==='cloud'?(online?' · syncing':' · saved offline'):'')+reminderNote)
     } catch (e) {feel('error');notify(`Could not save task: ${e.message}`)}
     finally {setBusy(false)}
   }
   const toggleTask = async task => {
-    if(session==='cloud'&&!online){notify('Offline: reconnect before changing cloud tasks.');return}
     const value = !task.is_complete
-    if (session === 'demo') {
-      writeDemo(tasks.map(t => t.id === task.id ? {...t,is_complete:value,updated_at:new Date().toISOString()} : t))
-    } else {
-      const {error} = await insforge.database.from('tasks').update({is_complete:value}).eq('id',task.id)
-      if (error) {notify(error.message);return}
-      await refresh()
-    }
+    try{
+      if (session === 'demo') {
+        writeDemo(tasks.map(t => t.id === task.id ? {...t,is_complete:value,updated_at:new Date().toISOString()} : t))
+      } else {
+        queueCloudTask('put',{...task,is_complete:value,updated_at:new Date().toISOString()})
+      }
+    }catch(error){notify('Could not save task: '+(error?.message||'Local storage unavailable'));return}
     if (value) {
       void cancelTaskReminder(task.id).catch(() => {})
       void cancelCalendarReminder(task.id).catch(() => {})
     }
     feel(value ? 'complete' : 'selection')
-    notify(value ? 'Nicely done! Task completed.' : 'Task moved back to your list.')
+    notify((value ? 'Nicely done! Task completed.' : 'Task moved back to your list.')+(session==='cloud'&&!online?' · saved offline':''))
   }
   const deleteTask = async task => {
     if (busy) return false
-    if(session==='cloud'&&!online){notify('Offline: reconnect before deleting cloud tasks.');return false}
     if (!window.confirm(`Delete “${task.title}”? This can’t be undone.`)) return false
     setBusy(true)
     try {
       if (session === 'demo') writeDemo(tasks.filter(t=>t.id!==task.id))
-      else {
-        const {error} = await insforge.database.from('tasks').delete().eq('id',task.id)
-        if (error) throw error
-        await refresh()
-      }
+      else queueCloudTask('delete',task)
       // Cancel both manual and date-based local notifications. Never make
       // successful cloud deletion depend on Android permission/state.
       void cancelTaskReminder(task.id).catch(() => {})
       void cancelCalendarReminder(task.id).catch(() => {})
       feel('warning')
-      notify('Task deleted')
+      notify('Task deleted'+(session==='cloud'&&!online?' · saved offline':''))
       setModal(current => current?.task?.id===task.id ? null : current)
       return true
     } catch (error) {
@@ -638,15 +688,10 @@ function App() {
     }
   }
   const rescheduleTask = async (task, dueDate) => {
-    if(session==='cloud'&&!online){notify('Offline: reconnect before rescheduling cloud tasks.');return}
     try {
       if (session === 'demo') {
         writeDemo(tasks.map(t => t.id === task.id ? {...t,due_date:dueDate,updated_at:new Date().toISOString()} : t))
-      } else {
-        const {error} = await insforge.database.from('tasks').update({due_date:dueDate}).eq('id',task.id)
-        if (error) throw error
-        await refresh()
-      }
+      } else queueCloudTask('put',{...task,due_date:dueDate,updated_at:new Date().toISOString()})
       let info=''
       if(isAndroidIslandSupported()){
         try {
@@ -658,7 +703,7 @@ function App() {
         }catch {info=' · Check your reminder in Personalize'}
       }
       feel('success')
-      notify('Task moved to '+new Date(dueDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+info)
+      notify('Task moved to '+new Date(dueDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+(session==='cloud'&&!online?' · saved offline':'')+info)
     } catch (error) {
       feel('error')
       notify('Could not reschedule task: ' + error.message)
@@ -743,7 +788,7 @@ function App() {
     {sidebarOpen && <div className="mobile-dim" onClick={()=>setSidebarOpen(false)}/>}
 
     <div className="app-content">
-      <header className="topbar"><div className="topbar-leading"><button className="mobile-menu icon-button" onClick={()=>{feel('selection');setSidebarOpen(true)}} aria-label="Open menu"><LayoutGrid size={21}/></button>{!NATIVE_ANDROID_APP&&<span className="breadcrumb">Workspace <span>/</span> <strong>{NAV.find(x=>x.id===view)?.label}</strong></span>}</div><div className="topbar-actions"><span className="topbar-date"><CalendarDays size={15}/> {currentDate}</span><button className="appearance-trigger theme-button" title="Personalize Daymark" aria-label="Personalize appearance" aria-expanded={appearanceOpen} onClick={()=>{feel('selection');setAppearanceOpen(open=>!open)}}><Sparkles size={18}/></button><button className="theme-button" title={`Switch to ${theme==='light'?'dark':'light'} mode`} onClick={()=>{feel('selection');setTheme(theme==='light'?'dark':'light')}}>{theme==='light'?<Moon size={18}/>:<Sun size={18}/>}</button><span className={'daymark-connection-badge'+(online?'':' is-offline')} title={online?'Online · Cloud sync active':'Offline · Notes queue locally'} aria-label={online?'Connected':'Offline'}>{online?<Wifi size={16}/>:<WifiOff size={16}/>}</span><span className="header-avatar daymark-profile-avatar" title={online?'Account · Connected':'Account · Offline'}>{session==='demo'?'D':(user?.email||'U')[0].toUpperCase()}<span className={'daymark-avatar-status'+(online?'':' is-offline')} aria-hidden="true">{online?<Wifi size={11}/>:<WifiOff size={11}/>}</span></span></div></header>
+      <header className="topbar"><div className="topbar-leading"><button className="mobile-menu icon-button" onClick={()=>{feel('selection');setSidebarOpen(true)}} aria-label="Open menu"><LayoutGrid size={21}/></button>{!NATIVE_ANDROID_APP&&<span className="breadcrumb">Workspace <span>/</span> <strong>{NAV.find(x=>x.id===view)?.label}</strong></span>}</div><div className="topbar-actions"><span className="topbar-date"><CalendarDays size={15}/> {currentDate}</span><button className="appearance-trigger theme-button" title="Personalize Daymark" aria-label="Personalize appearance" aria-expanded={appearanceOpen} onClick={()=>{feel('selection');setAppearanceOpen(open=>!open)}}><Sparkles size={18}/></button><button className="theme-button" title={`Switch to ${theme==='light'?'dark':'light'} mode`} onClick={()=>{feel('selection');setTheme(theme==='light'?'dark':'light')}}>{theme==='light'?<Moon size={18}/>:<Sun size={18}/>}</button><span className={'daymark-connection-badge'+(online?'':' is-offline')} title={online?'Online · Cloud sync active':'Offline · Task and Note edits saved locally'} aria-label={online?'Connected':'Offline'}>{online?<Wifi size={16}/>:<WifiOff size={16}/>}</span><span className="header-avatar daymark-profile-avatar" title={online?'Account · Connected':'Account · Offline'}>{session==='demo'?'D':(user?.email||'U')[0].toUpperCase()}<span className={'daymark-avatar-status'+(online?'':' is-offline')} aria-hidden="true">{online?<Wifi size={11}/>:<WifiOff size={11}/>}</span></span></div></header>
       <AnimatePresence>{appearanceOpen && <motion.div className="appearance-scrim v04-appearance-scrim" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:lessMotion?0:.2}} onMouseDown={event=>{if(event.target===event.currentTarget)setAppearanceOpen(false)}}>
         <motion.section className="appearance-panel v04-appearance-panel" role="dialog" aria-modal="true" aria-labelledby="appearance-title" initial={lessMotion?false:{opacity:0,x:26,y:24,scale:.97}} animate={{opacity:1,x:0,y:0,scale:1}} exit={lessMotion?{opacity:0}:{opacity:0,x:24,y:24,scale:.97}} transition={lessMotion?{duration:0}:SPRING}>
           <div className="appearance-header"><div>{!NATIVE_ANDROID_APP&&<span className="modal-kicker">YOUR DAY, YOUR WAY</span>}<h2 id="appearance-title">{NATIVE_ANDROID_APP?'Personalize':'Make it yours'} <Sparkles size={20}/></h2>{!NATIVE_ANDROID_APP&&<p>A little color makes every day brighter.</p>}</div><button className="icon-button" aria-label="Close appearance settings" onClick={()=>setAppearanceOpen(false)}><X size={19}/></button></div>
@@ -781,7 +826,7 @@ function App() {
           <h1>{NATIVE_ANDROID_APP?NAV.find(item=>item.id===view)?.label:TITLES[view][0]}<span className="heading-period">.</span></h1>
           {!NATIVE_ANDROID_APP&&<p>{TITLES[view][1]}</p>}
         </div>{!NATIVE_ANDROID_APP&&<button className="button-primary heading-add" onClick={()=>view==='notes'?openQuickNote():opening(view==='today'?today:null)}><Plus size={18}/> {view==='notes'?'Quick note':'New task'}</button>}</div>
-        {session==='cloud'&&!online&&view!=='notes'&&<p className="daymark-offline-tasks" role="status"><WifiOff size={17}/> Offline · Showing saved cloud tasks. Reconnect to edit tasks or refresh updates.</p>}
+        {session==='cloud'&&view!=='notes'&&(!online||pendingTaskCount>0||taskSyncError)&&<p className="daymark-offline-tasks" role="status">{online?<Wifi size={17}/>:<WifiOff size={17}/>} {pendingTaskCount?pendingTaskCount+' task change'+(pendingTaskCount===1?'':'s')+' saved on this device · '+(online?'sync pending':'syncs on reconnect'):online?'Task sync needs attention':'Offline · You can edit saved tasks. Changes will sync on reconnect.'} {taskSyncError&&online&&<button type="button" onClick={()=>setTaskSyncSignal(value=>value+1)}>Retry sync</button>}</p>}
         <Suspense fallback={<ExpressiveLoading kind={view==='calendar'?'calendar':view==='notes'?'notes':'tasks'}/>}>
         {view==='notes' ? <NotesWorkspace nativeApp={NATIVE_ANDROID_APP} notes={notes} cloudMode={session==='cloud'} online={online} syncState={noteSyncState} syncError={noteSyncError} pendingCount={session==='cloud'?Object.keys(readNotesOutbox(localStorage,noteScope)).length:0} onRetry={()=>{setNoteSyncSignal(n=>n+1);setResumeSignal(n=>n+1)}} onNew={openQuickNote} onOpen={editNote} onPin={pinNote} onDelete={deleteSavedNote} feel={feel} reducedMotion={lessMotion}/> : view==='calendar' ? <ExpressiveCalendar nativeApp={NATIVE_ANDROID_APP} tasks={tasks} selected={selectedCalendarDate} onSelect={setSelectedCalendarDate}
           onCreate={day=>setModal({due:day})} onEdit={task=>setModal({task})} onDelete={deleteTask}
@@ -798,7 +843,7 @@ function App() {
         </section>
         </>}
         </Suspense>
-        {!NATIVE_ANDROID_APP&&<footer className="app-footer"><span>Made for the little wins. ✦</span><span>{session==='demo'?'Demo • Saved locally':online?'Cloud tasks · Notes sync on':'Offline · Cached cloud tasks'}</span></footer>}
+        {!NATIVE_ANDROID_APP&&<footer className="app-footer"><span>Made for the little wins. ✦</span><span>{session==='demo'?'Demo • Saved locally':pendingTaskCount?pendingTaskCount+' task changes waiting to sync':online?'Cloud tasks · Notes sync on':'Offline · Tasks and Notes saved locally'}</span></footer>}
       </main>
     </div>
     <LayoutGroup id="daymark-bottom-navigation"><nav className="bottom-nav" aria-label="Mobile task navigation">
