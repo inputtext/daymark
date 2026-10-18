@@ -110,7 +110,7 @@ function AuthScreen({ onDemo, onAuth, onShowIntro, notify }) {
     finally { setBusy(false) }
   }
 
-  return <div className="welcome-shell">
+  return <div className="welcome-shell dm-auth-compact">
     <div className="welcome-art">
       <div className="welcome-art-header"><Logo light /><span className="art-pill"><span className="pulse-dot" /> Your calm productivity space</span></div>
       <div className="art-center">
@@ -130,9 +130,8 @@ function AuthScreen({ onDemo, onAuth, onShowIntro, notify }) {
     <div className="welcome-panel">
       <div className="welcome-mobile-logo"><Logo /></div>
       <div className="auth-content">
-        <div className="eyebrow"><Sparkles size={15} /> ORGANIZE YOUR DAY, YOUR WAY</div>
-        <h2>{verification ? 'Verify your email' : tab === 'signup' ? 'Create your space' : 'Welcome to a clearer day.'}</h2>
-        <p className="auth-subtitle">{verification ? `Enter the code sent to ${email}, or use the link in your inbox.` : 'A simpler way to keep everything moving. Start where you are.'}</p>
+        <h2>{verification ? 'Verify your email' : tab === 'signup' ? 'Create your space' : 'Welcome back.'}</h2>
+        {verification && <p className="auth-subtitle">Enter the code sent to {email}, or use the link in your inbox.</p>}
         {INSFORGE_CONFIGURED ? <>
           {!verification && <div className="auth-tabs" role="tablist" aria-label="Account action">
             <button className={tab === 'signin' ? 'active' : ''} type="button" onClick={() => {setTab('signin');setError('')}}>Sign in</button>
@@ -148,13 +147,13 @@ function AuthScreen({ onDemo, onAuth, onShowIntro, notify }) {
             <button type="submit" className="button-primary auth-submit" disabled={busy}>{busy ? <LoaderCircle className="spin" size={18}/> : null}{verification ? 'Verify email' : tab === 'signup' ? 'Create account' : 'Sign in'} <ArrowRight size={18}/></button>
             {verification && <button className="text-button" type="button" onClick={()=>{setVerification(false);setTab('signin')}}>Back to sign in</button>}
           </form>
-          <div className="or-divider"><span>or take a look first</span></div>
         </> : <div className="demo-note"><ShieldCheck size={18}/><span>Preview mode is ready. Connect InsForge to enable secure accounts and cloud sync.</span></div>}
-        <button type="button" className="button-demo" onClick={onDemo}><Sparkles size={18}/> Explore the demo <ArrowUpRight size={17}/></button>
-        <button type="button" className="dm-ob-replay" onClick={onShowIntro}><Sparkles size={15}/> See what Daymark can do <ArrowRight size={15}/></button>
-        <p className="auth-footnote"><ShieldCheck size={14}/> {INSFORGE_CONFIGURED ? 'Your tasks are private to your account.' : 'Demo tasks stay in this browser.'}</p>
+        {!verification && <div className="dm-auth-alternatives">
+          <button type="button" className="button-demo" onClick={onDemo}><Sparkles size={18}/> Explore demo <ArrowUpRight size={17}/></button>
+          <button type="button" className="dm-ob-replay" onClick={onShowIntro}>View intro <ArrowRight size={15}/></button>
+        </div>}
       </div>
-      <span className="welcome-bottom-right">Build better days, gently. ✦</span>
+      <span className="welcome-bottom-right" aria-hidden="true">Build better days, gently. ✦</span>
     </div>
   </div>
 }
