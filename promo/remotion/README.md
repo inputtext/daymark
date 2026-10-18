@@ -1,39 +1,47 @@
-# Daymark promotional motion graphics
+# Daymark — Cinematic Motion Graphics v0.2
 
-Independent Remotion video project. It does not import, change, or run the Daymark app/backend.
-
-## Start
-
-From this folder with Node.js 20+:
-
-```bash
-npm install
-npm run studio
-npm run render
-npm run render:poster
-```
-
-Output: `out/daymark-hero.mp4` (10 seconds, 1920×1080, 30fps, H.264) and poster PNG.
+This is an **isolated Remotion production workspace**. It does not import, execute, or modify Daymark's app, InsForge backend, or environment variables.
 
 ## Creative direction
 
-Based on the Daymark repository's checked-in React UI and CSS: checkmark wordmark, violet #7467f2, dark navy sidebar, Today navigation, progress banner, and task rows. The animation is a stylized UI recreation, not a literal recording. No claim is made about unreleased features.
+After Effects–inspired compositing: deep violet ambient glow, layered orbital lines, staggered typography, motion blur-style entrance transitions, a perspective-transformed Daymark UI recreation, sequential task completion, animated progress, and branded end card. The UI is a stylized recreation grounded in the checked-in Daymark source, **not a screen recording**.
 
-## ImageKit website integration
+## Compositions
 
-Upload the rendered MP4 and poster to ImageKit, then use the returned URLs:
+| ID | Length | Resolution | Purpose |
+|---|---|---|---|
+| DaymarkLaunch | 24 s | 1920×1080 | Promotional launch film |
+| DaymarkHeroLoop | 12 s | 1920×1080 | Muted website hero |
+| DaymarkVertical | 20 s | 1080×1920 | Mobile/social adaptation |
+
+## Local rendering
+
+Requires Node.js 20+, npm, FFmpeg and Chrome/Chromium available to Remotion.
+
+```bash
+cd promo/remotion
+npm install
+npm run studio
+npm run render
+npm run render:loop
+npm run render:mobile
+npm run render:poster
+```
+
+Files are written to `out/`. The `out/` directory is not tracked.
+
+## Quality gate
+
+**Source has been committed; actual renders have not yet been validated.** Before release: run all compositions, inspect frame samples at scene boundaries and final frames, check for clipping and legibility (especially the vertical cut), check loop boundary and refine if necessary, validate fonts, compress with FFmpeg, and test autoplay/muted/playsinline on real mobile browsers. Do not claim the 12-second version is perfectly seamless until the loop boundary has been checked.
+
+## ImageKit handoff
+
+Upload MP4 and poster to ImageKit after QA. Use the returned asset URLs; do not put private keys in frontend code.
 
 ```html
-<video autoplay muted loop playsinline preload="metadata" poster="IMAGEKIT_POSTER_URL" aria-label="Daymark productivity dashboard preview">
-  <source src="IMAGEKIT_VIDEO_URL" type="video/mp4" />
+<video autoplay muted loop playsinline preload="metadata" poster="IMAGEKIT_POSTER_URL" aria-label="Daymark productivity preview">
+  <source src="IMAGEKIT_HERO_VIDEO_URL" type="video/mp4" />
 </video>
 ```
 
-Keep the video muted for autoplay and add a reduced-motion fallback in the consuming website. Do not embed ImageKit private keys in client code.
-
-## Next production passes
-
-1. Validate the animation against current deployed UI/screenshots.
-2. Refine timings, typography, transitions and add optional sound to a separate non-autoplay cut.
-3. Render mobile 9:16 composition and a shorter seamless looping hero.
-4. Run visual QA and measure compressed asset size before publishing.
+Use a poster image or still UI for `prefers-reduced-motion: reduce`. Keep original video exports available as fallback, and test CDN transformations before deploying. Website integration is deliberately deferred until renders are approved.
