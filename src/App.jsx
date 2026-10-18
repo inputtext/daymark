@@ -393,11 +393,13 @@ function App() {
     try {
       let response = await insforge.database.from('tasks')
         .select('id,user_id,title,notes,due_date,due_time,priority,is_complete,created_at,updated_at')
+        .eq('user_id',user.id)
         .order('created_at', {ascending:false})
       if (response.error && /due_time|column.*not.*exist|schema cache/i.test(response.error.message||'')) {
         cloudTimeSupported.current = false
         response = await insforge.database.from('tasks')
           .select('id,user_id,title,notes,due_date,priority,is_complete,created_at,updated_at')
+          .eq('user_id',user.id)
           .order('created_at', {ascending:false})
       } else if (!response.error) cloudTimeSupported.current = true
       if(response.error)throw response.error
