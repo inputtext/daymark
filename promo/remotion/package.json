@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "studio": "remotion studio src/index.jsx",
-    "render": "remotion render src/index.jsx DaymarkHero out/daymark-hero.mp4 --codec h264",
-    "render:poster": "remotion still src/index.jsx DaymarkHero out/daymark-poster.png --frame 80"
+    "render": "remotion render src/index.jsx DaymarkLaunch out/daymark-launch.mp4 --codec h264",
+    "render:loop": "remotion render src/index.jsx DaymarkHeroLoop out/daymark-hero-loop.mp4 --codec h264",
+    "render:mobile": "remotion render src/index.jsx DaymarkVertical out/daymark-vertical.mp4 --codec h264",
+    "render:poster": "remotion still src/index.jsx DaymarkHeroLoop out/daymark-poster.png --frame 150"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.350",
